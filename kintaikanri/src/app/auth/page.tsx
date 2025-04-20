@@ -22,8 +22,8 @@ export default function Auth() {
     }
 
     const unsubscribe = watchTokenStatus(token, (status) => {
-      if (status === "done") {
-        router.push("/auth/success")
+      if (status === "linked") {
+        router.push("/profile")
       }
     })
 
@@ -57,7 +57,7 @@ export default function Auth() {
         throw new Error("トークンが見つかりません")
       }
 
-      router.push("/auth/success")
+      router.push("/profile")
     } catch (err) {
       setError("ログインに失敗しました")
       console.error(err)
