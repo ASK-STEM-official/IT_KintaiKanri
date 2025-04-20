@@ -1,0 +1,60 @@
+[debug] [2025-04-16T23:57:59.661Z] ----------------------------------------------------------------------
+[debug] [2025-04-16T23:57:59.663Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\OMEGA\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js serve
+[debug] [2025-04-16T23:57:59.663Z] CLI Version:   14.1.0
+[debug] [2025-04-16T23:57:59.664Z] Platform:      win32
+[debug] [2025-04-16T23:57:59.664Z] Node Version:  v20.12.2
+[debug] [2025-04-16T23:57:59.664Z] Time:          Thu Apr 17 2025 08:57:59 GMT+0900 (GMT+09:00)
+[debug] [2025-04-16T23:57:59.664Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-04-16T23:57:59.849Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-04-16T23:57:59.849Z] > authorizing via signed-in user (stem.ask.111@gmail.com)
+[debug] [2025-04-16T23:57:59.849Z] [iam] checking project stem-kintaikanri for permissions ["firebase.projects.get"]
+[debug] [2025-04-16T23:57:59.850Z] Checked if tokens are valid: true, expires at: 1744851159112
+[debug] [2025-04-16T23:57:59.850Z] Checked if tokens are valid: true, expires at: 1744851159112
+[debug] [2025-04-16T23:57:59.851Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/stem-kintaikanri:testIamPermissions [none]
+[debug] [2025-04-16T23:57:59.851Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/stem-kintaikanri:testIamPermissions x-goog-quota-user=projects/stem-kintaikanri
+[debug] [2025-04-16T23:57:59.851Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/stem-kintaikanri:testIamPermissions {"permissions":["firebase.projects.get"]}
+[debug] [2025-04-16T23:58:00.559Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/stem-kintaikanri:testIamPermissions 200
+[debug] [2025-04-16T23:58:00.560Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/stem-kintaikanri:testIamPermissions {"permissions":["firebase.projects.get"]}
+[debug] [2025-04-16T23:58:00.560Z] Checked if tokens are valid: true, expires at: 1744851159112
+[debug] [2025-04-16T23:58:00.560Z] Checked if tokens are valid: true, expires at: 1744851159112
+[debug] [2025-04-16T23:58:00.560Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/stem-kintaikanri [none]
+[debug] [2025-04-16T23:58:00.755Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/stem-kintaikanri 200
+[debug] [2025-04-16T23:58:00.755Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/stem-kintaikanri {"projectNumber":"305714579979","projectId":"stem-kintaikanri","lifecycleState":"ACTIVE","name":"stem-kintaikanri","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2025-04-15T09:18:20.022390Z"}
+[info] 
+[info] === Serving from 'C:\Users\OMEGA\KintaiKanri\kintaikanri'...
+[info] 
+[debug] [2025-04-16T23:58:00.758Z] Checked if tokens are valid: true, expires at: 1744851159112
+[debug] [2025-04-16T23:58:00.758Z] Checked if tokens are valid: true, expires at: 1744851159112
+[debug] [2025-04-16T23:58:00.758Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/stem-kintaikanri [none]
+[debug] [2025-04-16T23:58:01.078Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/stem-kintaikanri 200
+[debug] [2025-04-16T23:58:01.079Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/stem-kintaikanri {"projectId":"stem-kintaikanri","projectNumber":"305714579979","displayName":"stem-kintaikanri","name":"projects/stem-kintaikanri","resources":{"hostingSite":"stem-kintaikanri"},"state":"ACTIVE","etag":"1_6baa102c-d05d-4ba3-ab9b-90e3ad813644"}
+[debug] [2025-04-16T23:58:03.902Z] Checked if tokens are valid: true, expires at: 1744851159112
+[debug] [2025-04-16T23:58:03.902Z] Checked if tokens are valid: true, expires at: 1744851159112
+[debug] [2025-04-16T23:58:03.902Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/stem-kintaikanri/sites pageToken=&pageSize=10
+[debug] [2025-04-16T23:58:04.522Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/stem-kintaikanri/sites 200
+[debug] [2025-04-16T23:58:04.522Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/stem-kintaikanri/sites {"sites":[{"name":"projects/stem-kintaikanri/sites/stem-kintaikanri","defaultUrl":"https://stem-kintaikanri.web.app","type":"DEFAULT_SITE"}]}
+[debug] [2025-04-16T23:58:04.522Z] Checked if tokens are valid: true, expires at: 1744851159112
+[debug] [2025-04-16T23:58:04.522Z] Checked if tokens are valid: true, expires at: 1744851159112
+[debug] [2025-04-16T23:58:04.522Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/stem-kintaikanri/sites 
+[debug] [2025-04-16T23:58:04.991Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/stem-kintaikanri/sites 200
+[debug] [2025-04-16T23:58:04.991Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/stem-kintaikanri/sites {"sites":[{"name":"projects/stem-kintaikanri/sites/stem-kintaikanri","defaultUrl":"https://stem-kintaikanri.web.app","type":"DEFAULT_SITE"}]}
+[debug] [2025-04-16T23:58:04.992Z] Checked if tokens are valid: true, expires at: 1744851159112
+[debug] [2025-04-16T23:58:04.992Z] Checked if tokens are valid: true, expires at: 1744851159112
+[debug] [2025-04-16T23:58:04.992Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/stem-kintaikanri/webApps/-/config [none]
+[debug] [2025-04-16T23:58:05.777Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/stem-kintaikanri/webApps/-/config 200
+[debug] [2025-04-16T23:58:05.777Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/stem-kintaikanri/webApps/-/config {"projectId":"stem-kintaikanri","appId":"1:305714579979:web:5f9c279e7f5b927122550e","storageBucket":"stem-kintaikanri.firebasestorage.app","apiKey":"AIzaSyABg6hFW2qK70K_RM53_rPV0DsYjRei9C0","authDomain":"stem-kintaikanri.firebaseapp.com","messagingSenderId":"305714579979","measurementId":"G-XTYTDN20SB"}
+[info] 
+   Thank you for trying our early preview of Next.js support on Firebase Hosting.
+   During the preview, support is best-effort and breaking changes can be expected. Proceed with caution.
+   The integration is known to work with Next.js version 12 - 15.0. You may encounter errors.
+
+   Documentation: https://firebase.google.com/docs/hosting/frameworks/nextjs
+   File a bug: https://github.com/firebase/firebase-tools/issues/new?template=bug_report.md
+   Submit a feature request: https://github.com/firebase/firebase-tools/issues/new?template=feature_request.md
+
+   We'd love to learn from you. Express your interest in helping us shape the future of Firebase Hosting: https://goo.gle/41enW5X
+
+[debug] [2025-04-16T23:58:12.931Z] Error: EPERM: operation not permitted, open 'C:\Users\OMEGA\KintaiKanri\kintaikanri\.next\trace'
+[error] 
+[error] Error: An unexpected error has occurred.
