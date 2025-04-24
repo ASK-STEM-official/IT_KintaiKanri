@@ -49,9 +49,10 @@ export default function Auth() {
       if (!querySnapshot.empty) {
         const docRef = querySnapshot.docs[0].ref
         
-        // トークンの状態を更新（UIDを保存）
+        // トークンの状態を更新（UIDとGitHubプロフィール名を保存）
         await updateDoc(docRef, {
           uid: user.uid,
+          github: user.displayName || user.email?.split('@')[0] || 'GitHub User',
           status: "linked",
           updatedAt: serverTimestamp()
         })
