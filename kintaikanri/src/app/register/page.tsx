@@ -84,7 +84,7 @@ export default function Register() {
             </Button>
             <Button
               disabled={!isAuthenticated}
-              onClick={() => router.push("/register/card")}
+              onClick={() => router.push("/profile")}
             >
               次へ
             </Button>

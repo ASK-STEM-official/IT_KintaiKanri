@@ -9,6 +9,7 @@ import { getUserInfo } from "@/lib/firebase/auth"
 export default function Profile() {
   const router = useRouter()
   const [userInfo, setUserInfo] = useState<any>(null)
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const [error, setError] = useState<string>("")
 
   useEffect(() => {
@@ -18,6 +19,7 @@ export default function Profile() {
         return
       }
 
+      setCurrentUser(user)
       try {
         const info = await getUserInfo(user.uid)
         setUserInfo(info)
@@ -40,7 +42,7 @@ export default function Profile() {
     }
   }
 
-  if (!userInfo) {
+  if (!userInfo || !currentUser) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p>読み込み中...</p>
@@ -65,18 +67,16 @@ export default function Profile() {
             </div>
 
             <div>
-              <p className="text-gray-500">名前</p>
-              <p className="text-xl font-medium">
-                {userInfo.lastname} {userInfo.firstname}
-              </p>
+              <p className="text-gray-500">表示名</p>
+              <p className="text-xl font-medium">{userInfo.displayName}</p>
             </div>
 
-            {userInfo.cardId && (
-              <div>
-                <p className="text-gray-500">カードID</p>
-                <p className="text-xl font-medium">{userInfo.cardId}</p>
-              </div>
-            )}
+            <div>
+              <p className="text-gray-500">UID</p>
+              <p className="text-sm font-mono bg-gray-100 p-2 rounded break-all">
+                {currentUser.uid}
+              </p>
+            </div>
           </div>
 
           <Button
