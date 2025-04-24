@@ -4,7 +4,8 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { auth } from "@/lib/firebase/config"
-import { getUserInfo } from "@/lib/firebase/auth"
+import { collection, query, where, getDocs } from "firebase/firestore"
+import { db } from "@/lib/firebase/config"
 
 export default function Profile() {
   const router = useRouter()
@@ -21,8 +22,15 @@ export default function Profile() {
 
       setCurrentUser(user)
       try {
-        const info = await getUserInfo(user.uid)
-        setUserInfo(info)
+        // link_requestsからUIDを取得
+        const q = query(collection(db, "link_requests"), where("uid", "==", user.uid))
+        const querySnapshot = await getDocs(q)
+        if (!querySnapshot.empty) {
+          const data = querySnapshot.docs[0].data()
+          setUserInfo({
+            uid: data.uid
+          })
+        }
       } catch (err) {
         setError("ユーザー情報の取得に失敗しました")
         console.error(err)
@@ -62,19 +70,9 @@ export default function Profile() {
 
           <div className="space-y-4">
             <div>
-              <p className="text-gray-500">GitHubアカウント</p>
-              <p className="text-xl font-medium">{userInfo.github}</p>
-            </div>
-
-            <div>
-              <p className="text-gray-500">表示名</p>
-              <p className="text-xl font-medium">{userInfo.displayName}</p>
-            </div>
-
-            <div>
               <p className="text-gray-500">UID</p>
               <p className="text-sm font-mono bg-gray-100 p-2 rounded break-all">
-                {currentUser.uid}
+                {userInfo.uid}
               </p>
             </div>
           </div>

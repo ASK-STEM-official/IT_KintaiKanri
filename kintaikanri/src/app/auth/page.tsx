@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { signInWithGitHub, watchTokenStatus } from "@/lib/firebase/auth"
-import { collection, query, where, getDocs, updateDoc, setDoc, doc, serverTimestamp } from "firebase/firestore"
+import { collection, query, where, getDocs, updateDoc, serverTimestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase/config"
 
 export default function Auth() {
@@ -49,15 +49,7 @@ export default function Auth() {
       if (!querySnapshot.empty) {
         const docRef = querySnapshot.docs[0].ref
         
-        // ユーザー情報をusersコレクションに保存
-        await setDoc(doc(db, "users", user.uid), {
-          github: user.email,
-          displayName: user.displayName || user.email?.split('@')[0] || 'GitHub User',
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        })
-
-        // トークンの状態を更新
+        // トークンの状態を更新（UIDを保存）
         await updateDoc(docRef, {
           uid: user.uid,
           status: "linked",
