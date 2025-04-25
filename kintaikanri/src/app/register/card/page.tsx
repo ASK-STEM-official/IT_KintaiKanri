@@ -3,37 +3,107 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { auth } from "@/lib/firebase/config"
+import { collection, query, where, getDocs, doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore"
+import { db } from "@/lib/firebase/config"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
-export default function CardRegister() {
+export default function RegisterCard() {
   const router = useRouter()
-  const [buffer, setBuffer] = useState<string>("")
-  const [cardId, setCardId] = useState<string>("")
-  const [showDialog, setShowDialog] = useState<boolean>(false)
+  const [userInfo, setUserInfo] = useState<any>(null)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [error, setError] = useState<string>("")
+  const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [inputBuffer, setInputBuffer] = useState<string>("")
+  const [showDialog, setShowDialog] = useState(false)
 
-  // ページ全体でキー入力を受け付ける
   useEffect(() => {
-    const handleKeydown = (e: KeyboardEvent) => {
-      if (e.key === "Enter") {
-        if (buffer.length > 0) {
-          setCardId(buffer)
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        router.push("/auth")
+        return
+      }
+
+      setCurrentUser(user)
+      try {
+        // ユーザー情報を取得
+        const userDoc = await getDoc(doc(db, "users", user.uid))
+        if (userDoc.exists()) {
+          const userData = userDoc.data()
+          setUserInfo({
+            uid: user.uid,
+            github: userData.github,
+            firstname: userData.firstname,
+            lastname: userData.lastname
+          })
+        }
+      } catch (err) {
+        setError("ユーザー情報の取得に失敗しました")
+        console.error(err)
+      }
+    })
+
+    return () => unsubscribe()
+  }, [router])
+
+  // キーボード入力のイベントハンドラ
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Enterキーで確定
+      if (e.key === 'Enter') {
+        if (inputBuffer) {
           setShowDialog(true)
-          setBuffer("")
         }
         return
       }
 
-      if (/^[a-zA-Z0-9]$/.test(e.key) && buffer.length < 10) {
-        setBuffer((prev) => prev + e.key)
+      // 入力可能な文字のみを受け付ける（数字とアルファベット）
+      if (e.key.match(/^[0-9a-zA-Z]$/)) {
+        setInputBuffer(prev => prev + e.key)
       }
     }
 
-    window.addEventListener("keydown", handleKeydown)
-    return () => window.removeEventListener("keydown", handleKeydown)
-  }, [buffer])
+    window.addEventListener('keypress', handleKeyPress)
+    return () => window.removeEventListener('keypress', handleKeyPress)
+  }, [inputBuffer])
 
-  const handleConfirm = async () => {
-    // TODO: FirebaseにカードIDを保存
-    router.push("/dashboard")
+  const handleRegister = async () => {
+    if (!currentUser || !inputBuffer) return
+
+    try {
+      setIsLoading(true)
+      setError("")
+
+      // カードIDを追加して更新
+      await setDoc(doc(db, "users", currentUser.uid), {
+        ...userInfo,
+        cardId: inputBuffer,
+        updatedAt: serverTimestamp()
+      })
+
+      router.push("/dashboard")
+    } catch (err) {
+      setError("カードIDの保存に失敗しました")
+      console.error(err)
+    } finally {
+      setIsLoading(false)
+      setShowDialog(false)
+    }
+  }
+
+  if (!userInfo || !currentUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>読み込み中...</p>
+      </div>
+    )
   }
 
   return (
@@ -42,40 +112,81 @@ export default function CardRegister() {
         <h1 className="text-3xl font-bold">カード登録</h1>
         
         <div className="bg-white p-6 rounded-lg shadow-lg">
-          <p className="mb-4">NFC/RFIDカードをタッチしてください</p>
+          {error && (
+            <p className="text-red-500 mb-4">{error}</p>
+          )}
 
-          {/* 入力中のカードID表示 */}
-          {buffer && (
-            <p className="text-md text-blue-600 font-mono mb-4">
-              入力中: {buffer}
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+            <p className="text-blue-600 font-medium">
+              カードをリーダーにかざしてください
             </p>
-          )}
-
-          {/* 確認ダイアログ */}
-          {showDialog && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-              <div className="bg-white p-6 rounded-lg shadow-lg">
-                <h2 className="text-xl font-bold mb-4">確認</h2>
-                <p className="mb-4">カードID: {cardId}</p>
-                <p className="mb-6">このカードを登録しますか？</p>
-                <div className="flex justify-end gap-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowDialog(false)}
-                  >
-                    キャンセル
-                  </Button>
-                  <Button
-                    onClick={handleConfirm}
-                  >
-                    登録
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
+            {inputBuffer && (
+              <p className="mt-2 text-sm font-mono bg-white p-2 rounded animate-pulse">
+                読み取り中: {inputBuffer}
+              </p>
+            )}
+          </div>
         </div>
       </div>
+
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>カード登録の確認</DialogTitle>
+            <DialogDescription>
+              以下の情報でカードを登録します。
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div>
+              <p className="text-gray-500">UID</p>
+              <p className="text-sm font-mono bg-gray-100 p-2 rounded break-all">
+                {userInfo.uid}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-gray-500">GitHubプロフィール名</p>
+              <p className="text-sm font-mono bg-gray-100 p-2 rounded break-all">
+                {userInfo.github}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-gray-500">氏名</p>
+              <p className="text-sm font-mono bg-gray-100 p-2 rounded break-all">
+                {userInfo.lastname} {userInfo.firstname}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-gray-500">カードID</p>
+              <p className="text-sm font-mono bg-gray-100 p-2 rounded break-all">
+                {inputBuffer}
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDialog(false)
+                setInputBuffer("")
+              }}
+            >
+              キャンセル
+            </Button>
+            <Button
+              onClick={handleRegister}
+              disabled={isLoading}
+            >
+              {isLoading ? "登録中..." : "登録"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 
