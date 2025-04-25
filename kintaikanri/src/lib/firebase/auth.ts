@@ -49,14 +49,14 @@ export const saveToken = async (token: string) => {
 }
 
 // トークンの状態監視
-export const watchTokenStatus = (token: string, callback: (status: string) => void) => {
+export const watchTokenStatus = (token: string, callback: (status: string, data?: any) => void) => {
   return onSnapshot(
     collection(db, "link_requests"),
     (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         const data = change.doc.data()
         if (data.token === token) {
-          callback(data.status)
+          callback(data.status, data) // UIDを含むデータを渡す
         }
       })
     },
@@ -79,4 +79,4 @@ export const getUserInfo = async (uid: string) => {
     console.error("ユーザー情報取得エラー:", error)
     throw error
   }
-} 
+}

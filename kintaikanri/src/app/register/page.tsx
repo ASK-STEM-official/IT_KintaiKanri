@@ -6,6 +6,16 @@ import { Button } from "@/components/ui/button"
 import { QRCodeSVG } from "qrcode.react"
 import { v4 as uuidv4 } from "uuid"
 import { saveToken, watchTokenStatus } from "@/lib/firebase/auth"
+import { collection, query, where, getDocs } from "firebase/firestore"
+import { db } from "@/lib/firebase/config"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 export default function Register() {
   const router = useRouter()
@@ -13,6 +23,7 @@ export default function Register() {
   const [qrValue, setQrValue] = useState<string>("")
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
   const [error, setError] = useState<string>("")
+  const [showErrorDialog, setShowErrorDialog] = useState<boolean>(false)
 
   // トークン生成とQRコード更新
   useEffect(() => {
@@ -35,13 +46,35 @@ export default function Register() {
     return () => clearInterval(intervalId)
   }, [])
 
+  // UIDの重複チェック
+  const checkDuplicateUID = async (uid: string) => {
+    try {
+      const q = query(collection(db, "users"), where("uid", "==", uid))
+      const querySnapshot = await getDocs(q)
+      if (!querySnapshot.empty) {
+        setError("このユーザーは既に登録されています")
+        setShowErrorDialog(true)
+        return true
+      }
+      return false
+    } catch (err) {
+      console.error("UIDの重複チェックに失敗しました", err)
+      setError("エラーが発生しました")
+      setShowErrorDialog(true)
+      return true
+    }
+  }
+
   // トークンの状態監視
   useEffect(() => {
     if (!token) return
 
-    const unsubscribe = watchTokenStatus(token, (status) => {
-      if (status === "linked") {
-        setIsAuthenticated(true)
+    const unsubscribe = watchTokenStatus(token, async (status, data) => {
+      if (status === "linked" && data?.uid) {
+        const isDuplicate = await checkDuplicateUID(data.uid) // UIDを渡す
+        if (!isDuplicate) {
+          setIsAuthenticated(true)
+        }
       } else {
         setIsAuthenticated(false)
       }
@@ -91,6 +124,21 @@ export default function Register() {
           </div>
         </div>
       </div>
+
+      {/* エラーダイアログ */}
+      <Dialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>エラー</DialogTitle>
+          </DialogHeader>
+          <DialogDescription>
+            {error}
+          </DialogDescription>
+          <DialogFooter>
+            <Button onClick={() => setShowErrorDialog(false)}>閉じる</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
-} 
+}
