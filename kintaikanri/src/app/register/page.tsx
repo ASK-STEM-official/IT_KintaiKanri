@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { QRCodeSVG } from "qrcode.react"
@@ -24,6 +24,7 @@ export default function Register() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
   const [error, setError] = useState<string>("")
   const [showErrorDialog, setShowErrorDialog] = useState<boolean>(false)
+  const isTokenGenerated = useRef(false) // トークン生成フラグ
 
   // トークン生成とQRコード更新
   useEffect(() => {
@@ -40,7 +41,11 @@ export default function Register() {
       }
     }
 
-    generateToken()
+    if (!isTokenGenerated.current) {
+      generateToken()
+      isTokenGenerated.current = true // トークン生成済みフラグを設定
+    }
+
     const intervalId = setInterval(generateToken, 300000) // 5分ごとに更新
 
     return () => clearInterval(intervalId)
