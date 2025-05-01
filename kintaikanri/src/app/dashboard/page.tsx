@@ -37,7 +37,7 @@ export default function Dashboard() {
         return;
       }
 
-      if (/^[a-zA-Z0-9]$/.test(e.key) && buffer.length < 10) {
+      if (/^[a-zA-Z0-9]$/.test(e.key) && buffer.length < 24) {
         setBuffer((prev) => prev + e.key);
       }
     };
