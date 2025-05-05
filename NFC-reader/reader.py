@@ -14,12 +14,13 @@ def main():
     reader = rlist[0]
     print(f"接続中: {reader}")
 
-    conn = reader.createConnection()
     last_idm = None
 
     while True:
         try:
+            conn = reader.createConnection()
             conn.connect()
+
             command = [0xFF, 0xCA, 0x00, 0x00, 0x00]
             response, sw1, sw2 = conn.transmit(command)
 
@@ -30,13 +31,16 @@ def main():
                     last_idm = idm
             else:
                 last_idm = None
+
+            conn.disconnect()
+
         except (NoCardException, CardConnectionException):
             last_idm = None
         except Exception as e:
             print("エラー:", e)
             last_idm = None
 
-        time.sleep(0.1)
+        time.sleep(0.2)
 
 if __name__ == '__main__':
     main()
