@@ -1,8 +1,8 @@
 import time
 from smartcard.System import readers
-from smartcard.Exceptions import CardConnectionException, NoCardException
+from smartcard.Exceptions import NoCardException, CardConnectionException
 
-def to_hex(byte_array):
+def to_hex_string(byte_array):
     return ''.join(f'{b:02X}' for b in byte_array)
 
 def main():
@@ -12,36 +12,35 @@ def main():
         return
 
     reader = rlist[0]
-    print("使用中のリーダー:", reader)
+    print(f"接続中: {reader}")
 
-    last_uid = None
+    last_idm = None
 
     while True:
         try:
-            connection = reader.createConnection()
-            connection.connect()
+            conn = reader.createConnection()
+            conn.connect()
 
-            # UID取得コマンド（MIFARE/Type A/B）
-            GET_UID = [0xFF, 0xCA, 0x00, 0x00, 0x00]
-            data, sw1, sw2 = connection.transmit(GET_UID)
+            command = [0xFF, 0xCA, 0x00, 0x00, 0x00]
+            response, sw1, sw2 = conn.transmit(command)
 
             if sw1 == 0x90 and sw2 == 0x00:
-                uid = to_hex(data)
-                if uid != last_uid:
-                    print("カードUID:", uid)
-                    last_uid = uid
+                idm = to_hex_string(response)
+                if idm != last_idm:
+                    print("IDm:", idm)
+                    last_idm = idm
             else:
-                last_uid = None
+                last_idm = None
 
-            connection.disconnect()
+            conn.disconnect()
 
-        except (CardConnectionException, NoCardException):
-            last_uid = None
+        except (NoCardException, CardConnectionException):
+            last_idm = None
         except Exception as e:
             print("エラー:", e)
-            last_uid = None
+            last_idm = None
 
-        time.sleep(0.3)
+        time.sleep(0.2)
 
 if __name__ == '__main__':
     main()
