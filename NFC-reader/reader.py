@@ -1,8 +1,9 @@
 import time
+import pyautogui
 from smartcard.System import readers
-from smartcard.Exceptions import NoCardException, CardConnectionException
+from smartcard.Exceptions import CardConnectionException, NoCardException
 
-def to_hex_string(byte_array):
+def to_hex(byte_array):
     return ''.join(f'{b:02X}' for b in byte_array)
 
 def main():
@@ -12,35 +13,37 @@ def main():
         return
 
     reader = rlist[0]
-    print(f"接続中: {reader}")
+    print("使用中のリーダー:", reader)
 
-    last_idm = None
+    last_uid = None
 
     while True:
         try:
-            conn = reader.createConnection()
-            conn.connect()
+            connection = reader.createConnection()
+            connection.connect()
 
-            command = [0xFF, 0xCA, 0x00, 0x00, 0x00]
-            response, sw1, sw2 = conn.transmit(command)
+            GET_UID = [0xFF, 0xCA, 0x00, 0x00, 0x00]
+            data, sw1, sw2 = connection.transmit(GET_UID)
 
             if sw1 == 0x90 and sw2 == 0x00:
-                idm = to_hex_string(response)
-                if idm != last_idm:
-                    print("IDm:", idm)
-                    last_idm = idm
+                uid = to_hex(data)
+                if uid != last_uid:
+                    print("カードUID:", uid)
+                    pyautogui.write(uid)
+                    pyautogui.press('enter')
+                    last_uid = uid
             else:
-                last_idm = None
+                last_uid = None
 
-            conn.disconnect()
+            connection.disconnect()
 
-        except (NoCardException, CardConnectionException):
-            last_idm = None
+        except (CardConnectionException, NoCardException):
+            last_uid = None
         except Exception as e:
             print("エラー:", e)
-            last_idm = None
+            last_uid = None
 
-        time.sleep(0.2)
+        time.sleep(0.3)
 
 if __name__ == '__main__':
     main()
