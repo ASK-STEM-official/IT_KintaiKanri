@@ -10,116 +10,123 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-// ダミーデータ生成関数
-const generateMonthData = (year, month, count) => {
+type AttendanceLog = {
+  date: string;
+  entryTime: string;
+  exitTime: string;
+  workTime: string;
+};
+
+type MonthlyStats = {
+  count: number;
+  avgTime: string;
+  rate: string;
+};
+
+const generateMonthData = (year: number, month: number, count: number): AttendanceLog[] => {
   return Array.from({ length: count }, (_, i) => {
-    const day = Math.min(28, Math.max(1, Math.floor(Math.random() * 28) + 1))
-    const entryHour = Math.floor(Math.random() * 3) + 8 // 8-10時
-    const entryMinute = Math.floor(Math.random() * 60)
-    const workHours = Math.floor(Math.random() * 4) + 6 // 6-9時間
-    const workMinutes = Math.floor(Math.random() * 60)
+    const day = Math.min(28, Math.max(1, Math.floor(Math.random() * 28) + 1));
+    const entryHour = Math.floor(Math.random() * 3) + 8; // 8-10時
+    const entryMinute = Math.floor(Math.random() * 60);
+    const workHours = Math.floor(Math.random() * 4) + 6; // 6-9時間
+    const workMinutes = Math.floor(Math.random() * 60);
 
-    const exitHour = Math.min(22, entryHour + workHours)
-    const exitMinute = (entryMinute + workMinutes) % 60
-    const adjustedExitHour = exitHour + Math.floor((entryMinute + workMinutes) / 60)
+    const exitHour = Math.min(22, entryHour + workHours);
+    const exitMinute = (entryMinute + workMinutes) % 60;
+    const adjustedExitHour = exitHour + Math.floor((entryMinute + workMinutes) / 60);
 
-    const date = `${year}/${String(month).padStart(2, "0")}/${String(day).padStart(2, "0")}`
-    const entryTime = `${String(entryHour).padStart(2, "0")}:${String(entryMinute).padStart(2, "0")}`
-    const exitTime = `${String(adjustedExitHour).padStart(2, "0")}:${String(exitMinute).padStart(2, "0")}`
-    const workTime = `${workHours}:${String(workMinutes).padStart(2, "0")}`
+    const date = `${year}/${String(month).padStart(2, "0")}/${String(day).padStart(2, "0")}`;
+    const entryTime = `${String(entryHour).padStart(2, "0")}:${String(entryMinute).padStart(2, "0")}`;
+    const exitTime = `${String(adjustedExitHour).padStart(2, "0")}:${String(exitMinute).padStart(2, "0")}`;
+    const workTime = `${workHours}:${String(workMinutes).padStart(2, "0")}`;
 
-    return { date, entryTime, exitTime, workTime }
-  }).sort((a, b) => new Date(b.date) - new Date(a.date)) // 日付の降順でソート
-}
+    return { date, entryTime, exitTime, workTime };
+  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // 日付の降順でソート
+};
 
 export default function DashboardPage() {
-  const [timeRange, setTimeRange] = useState("month")
+  const [timeRange, setTimeRange] = useState("month");
   const [selectedMonth, setSelectedMonth] = useState(() => {
-    const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
-  })
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
 
   // 月選択用の選択肢を生成（過去12ヶ月分）
   const monthOptions = Array.from({ length: 12 }, (_, i) => {
-    const date = new Date()
-    date.setMonth(date.getMonth() - i)
-    const year = date.getFullYear()
-    const month = date.getMonth() + 1
-    const value = `${year}-${String(month).padStart(2, "0")}`
-    const label = `${year}年${month}月`
-    return { value, label, year, month }
-  })
+    const date = new Date();
+    date.setMonth(date.getMonth() - i);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const value = `${year}-${String(month).padStart(2, "0")}`;
+    const label = `${year}年${month}月`;
+    return { value, label, year, month };
+  });
 
-  // 拡充されたダミーデータ - 実際の実装では Firebase から取得
-  const allAttendanceLogs = {}
+  const allAttendanceLogs: Record<string, AttendanceLog[]> = {};
+  const monthlyStats: Record<string, MonthlyStats> = {};
 
   // 各月のダミーデータを生成
   monthOptions.forEach((option) => {
-    const entriesCount = Math.floor(Math.random() * 10) + 10 // 10-19件のランダムなエントリ
-    allAttendanceLogs[option.value] = generateMonthData(option.year, option.month, entriesCount)
-  })
-
-  // 月ごとの統計情報
-  const monthlyStats = {}
+    const entriesCount = option.month % 3 === 0 ? 3 : Math.floor(Math.random() * 10) + 10;
+    allAttendanceLogs[option.value] = generateMonthData(option.year, option.month, entriesCount);
+  });
 
   // 各月の統計情報を生成
   monthOptions.forEach((option) => {
-    const logs = allAttendanceLogs[option.value]
-    const count = logs.length
+    const logs = allAttendanceLogs[option.value];
+    const count = logs.length;
 
-    // 平均勤務時間を計算
-    let totalMinutes = 0
-    logs.forEach((log) => {
-      const [hours, minutes] = log.workTime.split(":").map(Number)
-      totalMinutes += hours * 60 + minutes
-    })
-    const avgMinutes = Math.round(totalMinutes / count)
-    const avgHours = Math.floor(avgMinutes / 60)
-    const avgMins = avgMinutes % 60
+    let totalMinutes = 0;
+    logs.forEach((log: AttendanceLog) => {
+      const [hours, minutes] = log.workTime.split(":").map(Number);
+      totalMinutes += hours * 60 + minutes;
+    });
+    const avgMinutes = Math.round(totalMinutes / count);
+    const avgHours = Math.floor(avgMinutes / 60);
+    const avgMins = avgMinutes % 60;
 
-    // 出勤率を計算（営業日を20日と仮定）
-    const rate = Math.round((count / 20) * 100)
+    const rate = Math.round((count / 20) * 100);
 
     monthlyStats[option.value] = {
       count,
       avgTime: `${avgHours}時間${String(avgMins).padStart(2, "0")}分`,
       rate: `${rate}%`,
-    }
-  })
+    };
+  });
 
   // 年間の統計情報
   const yearlyStats = {
     count: Object.values(monthlyStats).reduce((sum, stat) => sum + stat.count, 0),
     avgTime: "6時間15分",
     rate: "75%",
-  }
+  };
 
   // 選択した月のデータ
-  const [currentLogs, setCurrentLogs] = useState(allAttendanceLogs[selectedMonth] || [])
-  const [currentStats, setCurrentStats] = useState(
+  const [currentLogs, setCurrentLogs] = useState<AttendanceLog[]>(allAttendanceLogs[selectedMonth] || []);
+  const [currentStats, setCurrentStats] = useState<MonthlyStats>(
     monthlyStats[selectedMonth] || { count: 0, avgTime: "0時間", rate: "0%" },
-  )
+  );
 
   // 月が変更されたときにデータを更新
   useEffect(() => {
-    setCurrentLogs(allAttendanceLogs[selectedMonth] || [])
-    setCurrentStats(monthlyStats[selectedMonth] || { count: 0, avgTime: "0時間", rate: "0%" })
-  }, [selectedMonth])
+    setCurrentLogs(allAttendanceLogs[selectedMonth] || []);
+    setCurrentStats(monthlyStats[selectedMonth] || { count: 0, avgTime: "0時間", rate: "0%" });
+  }, [selectedMonth]);
 
   // 前月・翌月に移動する関数
   const goToPreviousMonth = () => {
-    const index = monthOptions.findIndex((option) => option.value === selectedMonth)
+    const index = monthOptions.findIndex((option) => option.value === selectedMonth);
     if (index < monthOptions.length - 1) {
-      setSelectedMonth(monthOptions[index + 1].value)
+      setSelectedMonth(monthOptions[index + 1].value);
     }
-  }
+  };
 
   const goToNextMonth = () => {
-    const index = monthOptions.findIndex((option) => option.value === selectedMonth)
+    const index = monthOptions.findIndex((option) => option.value === selectedMonth);
     if (index > 0) {
-      setSelectedMonth(monthOptions[index - 1].value)
+      setSelectedMonth(monthOptions[index - 1].value);
     }
-  }
+  };
 
   // 基本ユーザー情報
   const userData = {
@@ -128,10 +135,10 @@ export default function DashboardPage() {
     isWorking: true,
     lastWorkDate: currentLogs[0]?.date || "データなし",
     totalAttendance: yearlyStats.count,
-  }
+  };
 
   // 現在選択中の月のラベルを取得
-  const currentMonthLabel = monthOptions.find((option) => option.value === selectedMonth)?.label || "選択月"
+  const currentMonthLabel = monthOptions.find((option) => option.value === selectedMonth)?.label || "選択月";
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -147,8 +154,8 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <main className="flex-1 container mx-auto px-4 py-2 overflow-hidden flex flex-col">
-        <div className="grid grid-rows-[auto_1fr] gap-3 h-[calc(100vh-64px)]">
+      <main className="flex-1 container mx-auto px-4 py-2 pb-4 overflow-hidden">
+        <div className="h-[calc(100vh-76px)] flex flex-col gap-3">
           {/* 上部情報セクション */}
           <div className="grid grid-cols-3 gap-3">
             <Card className="shadow-sm">
@@ -239,8 +246,8 @@ export default function DashboardPage() {
           </div>
 
           {/* 出退勤履歴セクション */}
-          <Card className="shadow-sm h-full">
-            <CardHeader className="py-2 px-4 sticky top-0 bg-white z-10">
+          <Card className="shadow-sm flex-1 flex flex-col overflow-hidden">
+            <CardHeader className="py-2 px-4 bg-white z-10 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <CardTitle className="text-base font-medium">出退勤履歴</CardTitle>
@@ -282,43 +289,55 @@ export default function DashboardPage() {
                 <div className="text-sm text-gray-500">{currentStats.count}件の記録</div>
               </div>
             </CardHeader>
-            <CardContent className="p-0 h-full overflow-auto">
+            <CardContent className="p-0 flex-1 overflow-hidden">
               <div className="h-full overflow-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                <div className="max-h-[calc(12*3rem)] overflow-y-auto">
-                  <Table>
-                    <TableHeader className="sticky top-0 bg-white z-10">
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead className="text-sm font-medium py-2 h-9">日付</TableHead>
-                        <TableHead className="text-sm font-medium py-2 h-9">出勤時間</TableHead>
-                        <TableHead className="text-sm font-medium py-2 h-9">退勤時間</TableHead>
-                        <TableHead className="text-sm font-medium py-2 h-9">勤務時間</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {currentLogs.length > 0 ? (
-                        currentLogs.map((log, index) => (
+                <Table>
+                  <TableHeader className="sticky top-0 bg-white z-10">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="text-sm font-medium py-2 h-9">日付</TableHead>
+                      <TableHead className="text-sm font-medium py-2 h-9">出勤時間</TableHead>
+                      <TableHead className="text-sm font-medium py-2 h-9">退勤時間</TableHead>
+                      <TableHead className="text-sm font-medium py-2 h-9">勤務時間</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="relative">
+                    {currentLogs.length > 0 ? (
+                      <>
+                        {currentLogs.map((log, index) => (
                           <TableRow key={index} className="hover:bg-gray-50">
                             <TableCell className="text-sm py-1 h-9">{log.date}</TableCell>
                             <TableCell className="text-sm py-1 h-9">{log.entryTime}</TableCell>
                             <TableCell className="text-sm py-1 h-9">{log.exitTime}</TableCell>
                             <TableCell className="text-sm py-1 h-9">{log.workTime}</TableCell>
                           </TableRow>
-                        ))
-                      ) : (
+                        ))}
+                        {/* 空行を追加して高さを維持 */}
+                        {currentLogs.length < 10 && (
+                          <tr style={{ height: `${(10 - currentLogs.length) * 36}px` }}>
+                            <td colSpan={4}></td>
+                          </tr>
+                        )}
+                      </>
+                    ) : (
+                      <>
                         <TableRow>
                           <TableCell colSpan={4} className="text-sm text-center py-6">
                             この月の出勤記録はありません
                           </TableCell>
                         </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
+                        {/* 空行を追加して高さを維持 */}
+                        <tr style={{ height: "324px" }}>
+                          <td colSpan={4}></td>
+                        </tr>
+                      </>
+                    )}
+                  </TableBody>
+                </Table>
               </div>
             </CardContent>
           </Card>
         </div>
       </main>
     </div>
-  )
+  );
 }
