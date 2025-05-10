@@ -10,7 +10,20 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // ダミーデータ生成関数
-const generateMonthData = (year, month, count) => {
+type AttendanceLog = {
+  date: string
+  entryTime: string
+  exitTime: string
+  workTime: string
+}
+
+type MonthlyStats = {
+  count: number
+  avgTime: string
+  rate: string
+}
+
+const generateMonthData = (year: number, month: number, count: number): AttendanceLog[] => {
   return Array.from({ length: count }, (_, i) => {
     const day = Math.min(28, Math.max(1, Math.floor(Math.random() * 28) + 1))
     const entryHour = Math.floor(Math.random() * 3) + 8 // 8-10時
@@ -28,7 +41,7 @@ const generateMonthData = (year, month, count) => {
     const workTime = `${workHours}:${String(workMinutes).padStart(2, "0")}`
 
     return { date, entryTime, exitTime, workTime }
-  }).sort((a, b) => new Date(b.date) - new Date(a.date)) // 日付の降順でソート
+  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) // 日付の降順でソート
 }
 
 export function DashboardContent() {
@@ -50,7 +63,7 @@ export function DashboardContent() {
   })
 
   // 拡充されたダミーデータ - 実際の実装では Firebase から取得
-  const allAttendanceLogs = {}
+  const allAttendanceLogs: { [key: string]: AttendanceLog[] } = {}
 
   // 各月のダミーデータを生成
   monthOptions.forEach((option) => {
@@ -64,7 +77,7 @@ export function DashboardContent() {
   })
 
   // 月ごとの統計情報
-  const monthlyStats = {}
+  const monthlyStats: { [key: string]: MonthlyStats } = {}
 
   // 各月の統計情報を生成
   monthOptions.forEach((option) => {
@@ -73,7 +86,7 @@ export function DashboardContent() {
 
     // 平均勤務時間を計算
     let totalMinutes = 0
-    logs.forEach((log) => {
+    logs.forEach((log: AttendanceLog) => {
       const [hours, minutes] = log.workTime.split(":").map(Number)
       totalMinutes += hours * 60 + minutes
     })
@@ -93,14 +106,14 @@ export function DashboardContent() {
 
   // 年間の統計情報
   const yearlyStats = {
-    count: Object.values(monthlyStats).reduce((sum, stat) => sum + stat.count, 0),
+    count: Object.values(monthlyStats).reduce((sum, stat: MonthlyStats) => sum + stat.count, 0),
     avgTime: "6時間15分",
     rate: "75%",
   }
 
   // 選択した月のデータ
-  const [currentLogs, setCurrentLogs] = useState(allAttendanceLogs[selectedMonth] || [])
-  const [currentStats, setCurrentStats] = useState(
+  const [currentLogs, setCurrentLogs] = useState<AttendanceLog[]>(allAttendanceLogs[selectedMonth] || [])
+  const [currentStats, setCurrentStats] = useState<MonthlyStats>(
     monthlyStats[selectedMonth] || { count: 0, avgTime: "0時間", rate: "0%" },
   )
 
@@ -131,7 +144,7 @@ export function DashboardContent() {
     team: "開発班",
     isWorking: true,
     lastWorkDate: currentLogs[0]?.date || "データなし",
-    totalAttendance: yearlyStats.count,
+    totalAttendance: yearlyStats.count as number,
   }
 
   // 現在選択中の月のラベルを取得
@@ -286,7 +299,7 @@ export function DashboardContent() {
               <TableBody className="relative">
                 {currentLogs.length > 0 ? (
                   <>
-                    {currentLogs.map((log, index) => (
+                    {currentLogs.map((log: AttendanceLog, index: number) => (
                       <TableRow key={index} className="hover:bg-gray-50">
                         <TableCell className="text-sm py-1 h-9">{log.date}</TableCell>
                         <TableCell className="text-sm py-1 h-9">{log.entryTime}</TableCell>

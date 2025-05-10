@@ -26,15 +26,15 @@ const menuItems = [
     icon: Home,
   },
   {
-    title: "班別勤怠状況",
+    title: "開発班",
     icon: Users,
     subItems: [
       {
-        title: "概要",
+        title: "ダッシュボード",
         href: "/dashboard/team",
       },
       {
-        title: "メンバー一覧",
+        title: "班員一覧",
         href: "/dashboard/team/members",
       },
     ],
@@ -43,7 +43,7 @@ const menuItems = [
 
 export function AppSidebar() {
   const pathname = usePathname()
-  const [openSubMenu, setOpenSubMenu] = useState<string | null>("班別勤怠状況") // デフォルトで開く
+  const [openSubMenu, setOpenSubMenu] = useState<string | null>("開発班") // デフォルトで開く
 
   const toggleSubMenu = (title: string) => {
     setOpenSubMenu(openSubMenu === title ? null : title)

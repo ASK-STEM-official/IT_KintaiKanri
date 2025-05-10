@@ -34,11 +34,25 @@ export function TeamMembersContent() {
     return { value: year.toString(), label: `${year}年` }
   })
 
-  // 既存のダミーデータを以下の拡充されたデータに置き換えます
-
   // 月次データの部分を以下に置き換え
   // ダミーの班メンバーデータ（開発班固定）
-  const monthlyTeamMembers = {
+  type TeamMember = {
+    name: string
+    status: string
+    totalAttendance: number
+    avgWorkTime: string
+    attendanceRate: string
+  }
+
+  type MonthlyTeamMembers = {
+    [key: string]: TeamMember[]
+  }
+
+  type YearlyTeamMembers = {
+    [key: string]: TeamMember[]
+  }
+
+  const monthlyTeamMembers: MonthlyTeamMembers = {
     "2023-05": [
       { name: "山田 太郎", status: "勤務中", totalAttendance: 18, avgWorkTime: "6時間15分", attendanceRate: "90%" },
       { name: "佐藤 次郎", status: "勤務中", totalAttendance: 16, avgWorkTime: "7時間30分", attendanceRate: "80%" },
@@ -127,7 +141,7 @@ export function TeamMembersContent() {
 
   // 年次データの部分を以下に置き換え
   // 年次データ
-  const yearlyTeamMembers = {
+  const yearlyTeamMembers: YearlyTeamMembers = {
     "2023": [
       { name: "山田 太郎", status: "勤務中", totalAttendance: 210, avgWorkTime: "6時間20分", attendanceRate: "87%" },
       { name: "佐藤 次郎", status: "勤務中", totalAttendance: 195, avgWorkTime: "7時間10分", attendanceRate: "81%" },
@@ -283,7 +297,7 @@ export function TeamMembersContent() {
                 </TableRow>
               </TableHeader>
               <TableBody className="relative">
-                {teamMembers.map((member, index) => (
+                {teamMembers.map((member: TeamMember, index: number) => (
                   <TableRow key={index} className="hover:bg-gray-50">
                     <TableCell className="text-sm py-1 h-9">{member.name}</TableCell>
                     <TableCell className="text-sm py-1 h-9">

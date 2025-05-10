@@ -43,7 +43,12 @@ export function TeamDashboardContent() {
 
   // 日選択用のオプション（1〜31日）
   // 選択された年月に基づいて日数を調整
-  const [dayOptions, setDayOptions] = useState([])
+  type DayOption = {
+    value: string
+    label: string
+  }
+
+  const [dayOptions, setDayOptions] = useState<DayOption[]>([])
 
   useEffect(() => {
     const year = Number.parseInt(selectedYear)
@@ -82,7 +87,18 @@ export function TeamDashboardContent() {
   }
 
   // ダミーの班員勤怠データ（開発班固定）
-  const teamMembersAttendance = {
+  type TeamMemberAttendance = {
+    name: string
+    entryTime: string
+    exitTime: string
+    workTime: string
+  }
+
+  type TeamMembersAttendance = {
+    [key: string]: TeamMemberAttendance[]
+  }
+
+  const teamMembersAttendance: TeamMembersAttendance = {
     "2023-05-10": [
       { name: "山田 太郎", entryTime: "09:15", exitTime: "17:45", workTime: "8:30" },
       { name: "佐藤 次郎", entryTime: "08:45", exitTime: "16:30", workTime: "7:45" },
@@ -179,7 +195,7 @@ export function TeamDashboardContent() {
         <Card className="shadow-sm">
           <CardHeader className="py-2 px-4">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-medium">開発班 統計情報</CardTitle>
+              <CardTitle className="text-base font-medium">統計情報</CardTitle>
               <BarChart3Icon className="w-4 h-4 text-muted-foreground" />
             </div>
           </CardHeader>
@@ -230,7 +246,7 @@ export function TeamDashboardContent() {
       <Card className="shadow-sm flex-1 flex flex-col overflow-hidden">
         <CardHeader className="py-2 px-4 bg-white z-10 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-medium">開発班メンバー勤怠状況</CardTitle>
+            <CardTitle className="text-base font-medium">班員勤怠状況</CardTitle>
             <div className="flex items-center gap-2">
               <Select value={selectedYear} onValueChange={setSelectedYear}>
                 <SelectTrigger className="h-7 text-sm w-[80px]">
@@ -273,7 +289,7 @@ export function TeamDashboardContent() {
 
               <div className="text-sm text-gray-500 ml-2">
                 {selectedDateAttendance.length > 0
-                  ? `${selectedDateAttendance.filter((m) => m.entryTime !== "-").length}/${selectedDateAttendance.length}人出勤`
+                  ? `${selectedDateAttendance.filter((m: TeamMemberAttendance) => m.entryTime !== "-").length}/${selectedDateAttendance.length}人出勤`
                   : "データなし"}
               </div>
             </div>
@@ -292,7 +308,7 @@ export function TeamDashboardContent() {
               </TableHeader>
               <TableBody className="relative">
                 {selectedDateAttendance.length > 0 ? (
-                  selectedDateAttendance.map((member, index) => (
+                  selectedDateAttendance.map((member: TeamMemberAttendance, index: number) => (
                     <TableRow key={index} className="hover:bg-gray-50">
                       <TableCell className="text-sm py-1 h-9">{member.name}</TableCell>
                       <TableCell className="text-sm py-1 h-9">{member.entryTime}</TableCell>
