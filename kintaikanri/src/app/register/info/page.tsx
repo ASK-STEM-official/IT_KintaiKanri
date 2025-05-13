@@ -79,7 +79,7 @@ export default function RegisterInfoPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user) return
+    if (!user || !userInfo) return
 
     setIsLoading(true)
     try {
@@ -89,10 +89,11 @@ export default function RegisterInfoPage() {
         firstname,
         lastname,
         teamId: selectedTeam,
+        github: userInfo.github,
         createdAt: new Date(),
       })
 
-      router.push("/dashboard")
+      router.push("/register/card")
     } catch (error) {
       console.error("ユーザー情報の保存に失敗しました:", error)
     } finally {
@@ -175,7 +176,7 @@ export default function RegisterInfoPage() {
             disabled={isLoading}
             className="w-full mt-6"
           >
-            {isLoading ? "処理中..." : "登録"}
+            {isLoading ? "処理中..." : "次へ"}
           </Button>
         </form>
       </div>
