@@ -23,6 +23,7 @@ export default function RegisterCard() {
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [inputBuffer, setInputBuffer] = useState<string>("")
   const [showDialog, setShowDialog] = useState(false)
+  const [teamName, setTeamName] = useState<string>("")
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -41,8 +42,17 @@ export default function RegisterCard() {
             uid: user.uid,
             github: userData.github,
             firstname: userData.firstname,
-            lastname: userData.lastname
+            lastname: userData.lastname,
+            teamId: userData.teamId
           })
+
+          // 班情報を取得
+          if (userData.teamId) {
+            const teamDoc = await getDoc(doc(db, "teams", userData.teamId))
+            if (teamDoc.exists()) {
+              setTeamName(teamDoc.data().name)
+            }
+          }
         }
       } catch (err) {
         setError("ユーザー情報の取得に失敗しました")
@@ -85,6 +95,7 @@ export default function RegisterCard() {
       await setDoc(doc(db, "users", currentUser.uid), {
         ...userInfo,
         cardId: inputBuffer,
+        teamId: userInfo.teamId, // 班IDを保存
         updatedAt: serverTimestamp()
       })
 
@@ -157,6 +168,13 @@ export default function RegisterCard() {
               <p className="text-gray-500">氏名</p>
               <p className="text-sm font-mono bg-gray-100 p-2 rounded break-all">
                 {userInfo.lastname} {userInfo.firstname}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-gray-500">班</p>
+              <p className="text-sm font-mono bg-gray-100 p-2 rounded break-all">
+                {teamName || "未所属"}
               </p>
             </div>
 
