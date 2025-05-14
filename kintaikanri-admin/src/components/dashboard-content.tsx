@@ -68,9 +68,21 @@ export function DashboardContent() {
         if (!userDoc.exists()) return
 
         const userData = userDoc.data()
-        const teamRef = doc(db, "teams", userData.teamId)
-        const teamDoc = await getDoc(teamRef)
-        const teamName = teamDoc.exists() ? teamDoc.data().name : "未所属"
+        let teamName = "未所属"
+
+        // teamIdが存在する場合のみ班情報を取得
+        if (userData.teamId) {
+          try {
+            const teamRef = doc(db, "teams", userData.teamId)
+            const teamDoc = await getDoc(teamRef)
+            if (teamDoc.exists()) {
+              const teamData = teamDoc.data()
+              teamName = teamData.name || "未所属"
+            }
+          } catch (error) {
+            console.error("班情報の取得に失敗しました:", error)
+          }
+        }
 
         // 勤怠ログを取得
         const logsRef = collection(db, "attendance_logs")
