@@ -95,20 +95,47 @@ export function DashboardContent() {
         )
         const logsSnapshot = await getDocs(q)
         
-        const logs = logsSnapshot.docs.map(doc => {
+        // 出退勤のペアを作成
+        const attendancePairs = new Map<string, { entry?: Date; exit?: Date }>()
+        
+        logsSnapshot.docs.forEach(doc => {
           const data = doc.data()
           const timestamp = data.timestamp as Timestamp
           const date = timestamp.toDate()
-          return {
-            date: `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`,
-            entryTime: data.type === "entry" ? `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}` : "-",
-            exitTime: data.type === "exit" ? `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}` : "-",
-            workTime: "-" // TODO: 勤務時間の計算を実装
+          const dateKey = `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`
+          
+          if (!attendancePairs.has(dateKey)) {
+            attendancePairs.set(dateKey, {})
+          }
+          
+          const pair = attendancePairs.get(dateKey)!
+          if (data.type === "entry") {
+            pair.entry = date
+          } else if (data.type === "exit") {
+            pair.exit = date
           }
         })
+        
+        // 勤怠ログを整形
+        const logs = Array.from(attendancePairs.entries()).map(([date, pair]) => {
+          const workTime = pair.entry && pair.exit
+            ? calculateWorkTime(pair.entry, pair.exit)
+            : "-"
+            
+          return {
+            date,
+            entryTime: pair.entry
+              ? `${String(pair.entry.getHours()).padStart(2, "0")}:${String(pair.entry.getMinutes()).padStart(2, "0")}`
+              : "-",
+            exitTime: pair.exit
+              ? `${String(pair.exit.getHours()).padStart(2, "0")}:${String(pair.exit.getMinutes()).padStart(2, "0")}`
+              : "-",
+            workTime
+          }
+        }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
         // 出勤回数をカウント
-        const attendanceCount = logsSnapshot.docs.filter(doc => doc.data().type === "entry").length
+        const attendanceCount = Array.from(attendancePairs.values()).filter(pair => pair.entry).length
 
         // 月ごとの統計を計算
         const [year, month] = selectedMonth.split("-").map(Number)
@@ -117,16 +144,49 @@ export function DashboardContent() {
           return logYear === year && logMonth === month
         })
 
+        // 平均勤務時間を計算
+        const monthWorkTimes = monthLogs
+          .filter(log => log.workTime !== "-")
+          .map(log => {
+            const [hours, minutes] = log.workTime.split(":").map(Number)
+            return hours * 60 + minutes
+          })
+        
+        const avgWorkMinutes = monthWorkTimes.length > 0
+          ? Math.round(monthWorkTimes.reduce((sum, minutes) => sum + minutes, 0) / monthWorkTimes.length)
+          : 0
+        
+        const avgWorkHours = Math.floor(avgWorkMinutes / 60)
+        const avgWorkMins = avgWorkMinutes % 60
+
         const monthlyStats = {
           count: monthLogs.filter(log => log.entryTime !== "-").length,
-          avgTime: "0時間", // TODO: 平均勤務時間の計算を実装
+          avgTime: avgWorkMinutes > 0
+            ? `${avgWorkHours}時間${String(avgWorkMins).padStart(2, "0")}分`
+            : "0時間",
           rate: `${Math.round((monthLogs.filter(log => log.entryTime !== "-").length / 20) * 100)}%`
         }
 
         // 年間の統計を計算
+        const yearlyWorkTimes = logs
+          .filter(log => log.workTime !== "-")
+          .map(log => {
+            const [hours, minutes] = log.workTime.split(":").map(Number)
+            return hours * 60 + minutes
+          })
+        
+        const avgYearlyWorkMinutes = yearlyWorkTimes.length > 0
+          ? Math.round(yearlyWorkTimes.reduce((sum, minutes) => sum + minutes, 0) / yearlyWorkTimes.length)
+          : 0
+        
+        const avgYearlyWorkHours = Math.floor(avgYearlyWorkMinutes / 60)
+        const avgYearlyWorkMins = avgYearlyWorkMinutes % 60
+
         const yearlyStats = {
           count: attendanceCount,
-          avgTime: "0時間", // TODO: 平均勤務時間の計算を実装
+          avgTime: avgYearlyWorkMinutes > 0
+            ? `${avgYearlyWorkHours}時間${String(avgYearlyWorkMins).padStart(2, "0")}分`
+            : "0時間",
           rate: `${Math.round((attendanceCount / 240) * 100)}%` // 年間営業日を240日と仮定
         }
 
@@ -360,4 +420,13 @@ export function DashboardContent() {
       </Card>
     </div>
   )
+}
+
+// 勤務時間を計算する関数
+function calculateWorkTime(entry: Date, exit: Date): string {
+  const diffMs = exit.getTime() - entry.getTime()
+  const diffMinutes = Math.floor(diffMs / (1000 * 60))
+  const hours = Math.floor(diffMinutes / 60)
+  const minutes = diffMinutes % 60
+  return `${hours}:${String(minutes).padStart(2, "0")}`
 }
