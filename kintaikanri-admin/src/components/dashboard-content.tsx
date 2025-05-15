@@ -118,9 +118,22 @@ export function DashboardContent() {
         
         // 勤怠ログを整形
         const logs = Array.from(attendancePairs.entries()).map(([date, pair]) => {
-          const workTime = pair.entry && pair.exit
-            ? calculateWorkTime(pair.entry, pair.exit)
-            : "-"
+          let workTime = "-"
+          
+          if (pair.entry && pair.exit) {
+            // 日付が異なる場合の処理
+            const entryDate = new Date(pair.entry)
+            const exitDate = new Date(pair.exit)
+            
+            // 日付を同じに設定して時間のみを比較
+            const entryTime = new Date(entryDate)
+            const exitTime = new Date(exitDate)
+            exitTime.setFullYear(entryTime.getFullYear())
+            exitTime.setMonth(entryTime.getMonth())
+            exitTime.setDate(entryTime.getDate())
+            
+            workTime = calculateWorkTime(entryTime, exitTime)
+          }
             
           return {
             date,
@@ -390,7 +403,15 @@ export function DashboardContent() {
                         <TableCell className="text-sm py-1 h-9">{log.date}</TableCell>
                         <TableCell className="text-sm py-1 h-9">{log.entryTime}</TableCell>
                         <TableCell className="text-sm py-1 h-9">{log.exitTime}</TableCell>
-                        <TableCell className="text-sm py-1 h-9">{log.workTime}</TableCell>
+                        <TableCell className="text-sm py-1 h-9">
+                          {log.workTime !== "-" ? (
+                            <>
+                              {log.workTime.split(":")[0]}時間{log.workTime.split(":")[1]}分
+                            </>
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                     {/* 空行を追加して高さを維持 */}
@@ -424,9 +445,19 @@ export function DashboardContent() {
 
 // 勤務時間を計算する関数
 function calculateWorkTime(entry: Date, exit: Date): string {
-  const diffMs = exit.getTime() - entry.getTime()
+  // 日付が異なる場合（日をまたぐ場合）は24時間を加算
+  const exitTime = exit.getTime()
+  const entryTime = entry.getTime()
+  let diffMs = exitTime - entryTime
+  
+  // 日をまたぐ場合の処理
+  if (diffMs < 0) {
+    diffMs += 24 * 60 * 60 * 1000 // 24時間をミリ秒で加算
+  }
+  
   const diffMinutes = Math.floor(diffMs / (1000 * 60))
   const hours = Math.floor(diffMinutes / 60)
   const minutes = diffMinutes % 60
+  
   return `${hours}:${String(minutes).padStart(2, "0")}`
 }
