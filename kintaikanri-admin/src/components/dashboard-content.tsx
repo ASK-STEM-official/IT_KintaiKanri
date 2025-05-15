@@ -182,12 +182,36 @@ export function DashboardContent() {
           .filter(pair => pair.entry)
           .length
 
+        // 全労働日数を計算（その日一人でも出勤記録がある日をカウント）
+        const allAttendanceLogs = await getDocs(collection(db, "attendance_logs"))
+        const workingDays = new Set<string>()
+        
+        allAttendanceLogs.docs.forEach(doc => {
+          const data = doc.data()
+          const timestamp = data.timestamp as Timestamp
+          const date = timestamp.toDate()
+          const dateKey = `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`
+          workingDays.add(dateKey)
+        })
+
         // 月ごとの統計を計算
         const [year, month] = selectedMonth.split("-").map(Number)
         const monthLogs = logs.filter(log => {
           const [logYear, logMonth] = log.date.split("/").map(Number)
           return logYear === year && logMonth === month
         })
+
+        // 月の労働日数を計算
+        const monthWorkingDays = Array.from(workingDays).filter(date => {
+          const [logYear, logMonth] = date.split("/").map(Number)
+          return logYear === year && logMonth === month
+        }).length
+
+        // 年の労働日数を計算
+        const yearWorkingDays = Array.from(workingDays).filter(date => {
+          const [logYear] = date.split("/").map(Number)
+          return logYear === year
+        }).length
 
         // 平均勤務時間を計算
         const monthWorkTimes = monthLogs
@@ -209,7 +233,9 @@ export function DashboardContent() {
           avgTime: avgWorkMinutes > 0
             ? `${avgWorkHours}時間${String(avgWorkMins).padStart(2, "0")}分`
             : "0時間",
-          rate: `${Math.round((monthLogs.filter(log => log.entryTime !== "-").length / 20) * 100)}%`
+          rate: monthWorkingDays > 0
+            ? `${Math.round((monthLogs.filter(log => log.entryTime !== "-").length / monthWorkingDays) * 100)}%`
+            : "0%"
         }
 
         // 年間の統計を計算
@@ -232,7 +258,9 @@ export function DashboardContent() {
           avgTime: avgYearlyWorkMinutes > 0
             ? `${avgYearlyWorkHours}時間${String(avgYearlyWorkMins).padStart(2, "0")}分`
             : "0時間",
-          rate: `${Math.round((attendanceCount / 240) * 100)}%` // 年間営業日を240日と仮定
+          rate: yearWorkingDays > 0
+            ? `${Math.round((attendanceCount / yearWorkingDays) * 100)}%`
+            : "0%"
         }
 
         // 最新の出勤記録を取得
