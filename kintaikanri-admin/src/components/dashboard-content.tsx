@@ -96,64 +96,91 @@ export function DashboardContent() {
         const logsSnapshot = await getDocs(q)
         
         // 出退勤のペアを作成
-        const attendancePairs = new Map<string, { entry?: Date; exit?: Date }>()
+        const attendancePairs = new Map<string, { entry?: Date; exit?: Date }[]>()
         
-        logsSnapshot.docs.forEach(doc => {
+        // まず出勤記録を時系列順に並べる
+        const sortedLogs = logsSnapshot.docs.sort((a, b) => {
+          const aTime = (a.data().timestamp as Timestamp).toDate().getTime()
+          const bTime = (b.data().timestamp as Timestamp).toDate().getTime()
+          return aTime - bTime
+        })
+        
+        sortedLogs.forEach(doc => {
           const data = doc.data()
           const timestamp = data.timestamp as Timestamp
           const date = timestamp.toDate()
           const dateKey = `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`
           
           if (!attendancePairs.has(dateKey)) {
-            attendancePairs.set(dateKey, {})
+            attendancePairs.set(dateKey, [])
           }
           
-          const pair = attendancePairs.get(dateKey)!
+          const pairs = attendancePairs.get(dateKey)!
           if (data.type === "entry") {
-            pair.entry = date
-          } else if (data.type === "exit") {
-            pair.exit = date
+            // 新しい出勤記録を追加
+            pairs.push({ entry: date })
+          } else if (data.type === "exit" && pairs.length > 0) {
+            // 最新の出勤記録に退勤時間を追加
+            const lastPair = pairs[pairs.length - 1]
+            if (!lastPair.exit) {
+              lastPair.exit = date
+            } else {
+              // 既に退勤時間がある場合は新しいペアを作成
+              pairs.push({ exit: date })
+            }
           }
         })
         
         // 勤怠ログを整形
-        const logs = Array.from(attendancePairs.entries()).map(([date, pair]) => {
-          let workTime = "-"
-          
-          if (pair.entry && pair.exit) {
-            // 日付が異なる場合の処理
-            const entryDate = new Date(pair.entry)
-            const exitDate = new Date(pair.exit)
+        const logs = Array.from(attendancePairs.entries()).flatMap(([date, pairs]) => {
+          return pairs.map(pair => {
+            let workTime = "-"
             
-            // 日付を同じに設定して時間のみを比較
-            const entryTime = new Date(entryDate)
-            const exitTime = new Date(exitDate)
-            exitTime.setFullYear(entryTime.getFullYear())
-            exitTime.setMonth(entryTime.getMonth())
-            exitTime.setDate(entryTime.getDate())
-            
-            // 勤務時間を計算
-            const diffMs = exitTime.getTime() - entryTime.getTime()
-            const diffMinutes = Math.floor(diffMs / (1000 * 60))
-            const hours = Math.floor(diffMinutes / 60)
-            const minutes = diffMinutes % 60
-            workTime = `${hours}:${String(minutes).padStart(2, "0")}`
+            if (pair.entry && pair.exit) {
+              // 日付が異なる場合の処理
+              const entryDate = new Date(pair.entry)
+              const exitDate = new Date(pair.exit)
+              
+              // 日付を同じに設定して時間のみを比較
+              const entryTime = new Date(entryDate)
+              const exitTime = new Date(exitDate)
+              exitTime.setFullYear(entryTime.getFullYear())
+              exitTime.setMonth(entryTime.getMonth())
+              exitTime.setDate(entryTime.getDate())
+              
+              // 勤務時間を計算
+              const diffMs = exitTime.getTime() - entryTime.getTime()
+              const diffMinutes = Math.floor(diffMs / (1000 * 60))
+              const hours = Math.floor(diffMinutes / 60)
+              const minutes = diffMinutes % 60
+              workTime = `${hours}:${String(minutes).padStart(2, "0")}`
+            }
+              
+            return {
+              date,
+              entryTime: pair.entry
+                ? `${String(pair.entry.getHours()).padStart(2, "0")}:${String(pair.entry.getMinutes()).padStart(2, "0")}`
+                : "-",
+              exitTime: pair.exit
+                ? `${String(pair.exit.getHours()).padStart(2, "0")}:${String(pair.exit.getMinutes()).padStart(2, "0")}`
+                : "-",
+              workTime
+            }
+          })
+        }).sort((a, b) => {
+          const dateCompare = new Date(b.date).getTime() - new Date(a.date).getTime()
+          if (dateCompare === 0) {
+            // 同じ日付の場合は出勤時間で比較（古い順）
+            return a.entryTime.localeCompare(b.entryTime)
           }
-            
-          return {
-            date,
-            entryTime: pair.entry
-              ? `${String(pair.entry.getHours()).padStart(2, "0")}:${String(pair.entry.getMinutes()).padStart(2, "0")}`
-              : "-",
-            exitTime: pair.exit
-              ? `${String(pair.exit.getHours()).padStart(2, "0")}:${String(pair.exit.getMinutes()).padStart(2, "0")}`
-              : "-",
-            workTime
-          }
-        }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          return dateCompare
+        })
 
         // 出勤回数をカウント
-        const attendanceCount = Array.from(attendancePairs.values()).filter(pair => pair.entry).length
+        const attendanceCount = Array.from(attendancePairs.values())
+          .flat()
+          .filter(pair => pair.entry)
+          .length
 
         // 月ごとの統計を計算
         const [year, month] = selectedMonth.split("-").map(Number)
