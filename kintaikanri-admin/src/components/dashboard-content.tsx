@@ -132,7 +132,12 @@ export function DashboardContent() {
             exitTime.setMonth(entryTime.getMonth())
             exitTime.setDate(entryTime.getDate())
             
-            workTime = calculateWorkTime(entryTime, exitTime)
+            // 勤務時間を計算
+            const diffMs = exitTime.getTime() - entryTime.getTime()
+            const diffMinutes = Math.floor(diffMs / (1000 * 60))
+            const hours = Math.floor(diffMinutes / 60)
+            const minutes = diffMinutes % 60
+            workTime = `${hours}:${String(minutes).padStart(2, "0")}`
           }
             
           return {
