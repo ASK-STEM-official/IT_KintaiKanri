@@ -243,7 +243,7 @@ export function DashboardContent() {
         const avgWorkMins = avgWorkMinutes % 60
 
         const monthlyStats = {
-          count: monthLogs.filter(log => log.entryTime !== "-").length,
+          count: monthAttendanceDays,
           avgTime: avgWorkMinutes > 0
             ? `${avgWorkHours}時間${String(avgWorkMins).padStart(2, "0")}分`
             : "0時間",
@@ -268,7 +268,7 @@ export function DashboardContent() {
         const avgYearlyWorkMins = avgYearlyWorkMinutes % 60
 
         const yearlyStats = {
-          count: attendanceCount,
+          count: yearAttendanceDays,
           avgTime: avgYearlyWorkMinutes > 0
             ? `${avgYearlyWorkHours}時間${String(avgYearlyWorkMins).padStart(2, "0")}分`
             : "0時間",
@@ -298,7 +298,7 @@ export function DashboardContent() {
           team: teamName,
           isWorking,
           lastWorkDate: logs[0]?.date || "データなし",
-          totalAttendance: attendanceCount
+          totalAttendance: yearAttendanceDays
         })
         setCurrentLogs(monthLogs)
         setCurrentStats(monthlyStats)
@@ -384,12 +384,12 @@ export function DashboardContent() {
                 <span>{userData.lastWorkDate}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="font-medium">今月の出勤回数:</span>
-                <span>{timeRange === "month" ? `${currentStats.count}回` : "-"}</span>
+                <span className="font-medium">今月の出勤日数:</span>
+                <span>{timeRange === "month" ? `${currentStats.count}日` : "-"}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="font-medium">累計出勤回数:</span>
-                <span>{userData.totalAttendance}回</span>
+                <span className="font-medium">累計出勤日数:</span>
+                <span>{userData.totalAttendance}日</span>
               </div>
             </div>
           </CardContent>
