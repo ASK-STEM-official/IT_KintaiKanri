@@ -28,8 +28,33 @@ export default function RegisterInfoPage() {
   const [firstname, setFirstname] = useState("")
   const [lastname, setLastname] = useState("")
   const [selectedTeam, setSelectedTeam] = useState("")
+  const [selectedGrade, setSelectedGrade] = useState("")
   const [teams, setTeams] = useState<Team[]>([])
   const [isLoading, setIsLoading] = useState(false)
+
+  // 期生の選択肢を生成（現在の年度から計算）
+  const currentYear = new Date().getFullYear()
+  const startYear = 2016 // 1期生の年度
+  const currentGrade = currentYear - startYear + 1 // 現在の期生
+
+  const calculateStudentInfo = (grade: number) => {
+    const enrollmentYear = startYear + grade - 1
+    const yearsSinceEnrollment = currentYear - enrollmentYear
+    const studentYear = yearsSinceEnrollment + 1
+
+    if (studentYear >= 1 && studentYear <= 3) {
+      return `${studentYear}年生 (${enrollmentYear}年度入学)`
+    } else {
+      return `卒業生 (${enrollmentYear}年度入学)`
+    }
+  }
+
+  const handleGradeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value)
+    if (value >= 1 && value <= currentGrade) {
+      setSelectedGrade(value.toString())
+    }
+  }
 
   // 認証状態の監視
   useEffect(() => {
@@ -89,6 +114,7 @@ export default function RegisterInfoPage() {
         firstname,
         lastname,
         teamId: selectedTeam,
+        grade: parseInt(selectedGrade),
         github: userInfo.github,
         createdAt: new Date(),
       })
@@ -168,6 +194,27 @@ export default function RegisterInfoPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div>
+              <label htmlFor="grade" className="block text-gray-500 mb-1">
+                学年
+              </label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  id="grade"
+                  value={selectedGrade}
+                  onChange={handleGradeChange}
+                  min={1}
+                  max={currentGrade}
+                  className="w-20"
+                  required
+                />
+                <span className="text-sm text-gray-500">
+                  {selectedGrade ? calculateStudentInfo(parseInt(selectedGrade)) : ""}
+                </span>
+              </div>
             </div>
           </div>
 

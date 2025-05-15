@@ -15,9 +15,18 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 
+type UserInfo = {
+  uid: string
+  github: string
+  firstname: string
+  lastname: string
+  teamId: string
+  grade: number
+}
+
 export default function RegisterCard() {
   const router = useRouter()
-  const [userInfo, setUserInfo] = useState<any>(null)
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [error, setError] = useState<string>("")
   const [isLoading, setIsLoading] = useState<boolean>(false)
@@ -43,7 +52,8 @@ export default function RegisterCard() {
             github: userData.github,
             firstname: userData.firstname,
             lastname: userData.lastname,
-            teamId: userData.teamId
+            teamId: userData.teamId,
+            grade: userData.grade
           })
 
           // 班情報を取得
@@ -85,7 +95,7 @@ export default function RegisterCard() {
   }, [inputBuffer])
 
   const handleRegister = async () => {
-    if (!currentUser || !inputBuffer) return
+    if (!currentUser || !inputBuffer || !userInfo) return
 
     try {
       setIsLoading(true)
@@ -95,7 +105,7 @@ export default function RegisterCard() {
       await setDoc(doc(db, "users", currentUser.uid), {
         ...userInfo,
         cardId: inputBuffer,
-        teamId: userInfo.teamId, // 班IDを保存
+        teamId: userInfo.teamId,
         updatedAt: serverTimestamp()
       })
 
@@ -108,6 +118,10 @@ export default function RegisterCard() {
       setShowDialog(false)
     }
   }
+
+  // 期生の年度を計算
+  const startYear = 2016 // 1期生の年度
+  const calculateYear = (grade: number) => startYear + grade - 1
 
   if (!userInfo || !currentUser) {
     return (
@@ -175,6 +189,13 @@ export default function RegisterCard() {
               <p className="text-gray-500">班</p>
               <p className="text-sm font-mono bg-gray-100 p-2 rounded break-all">
                 {teamName || "未所属"}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-gray-500">学年</p>
+              <p className="text-sm font-mono bg-gray-100 p-2 rounded break-all">
+                {userInfo?.grade}期生 ({calculateYear(userInfo?.grade || 0)}年度入学)
               </p>
             </div>
 
