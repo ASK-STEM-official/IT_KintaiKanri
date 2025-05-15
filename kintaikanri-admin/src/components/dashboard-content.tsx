@@ -207,11 +207,25 @@ export function DashboardContent() {
           return logYear === year && logMonth === month
         }).length
 
+        // 月の出勤日数を計算（同日の複数回出勤は1回としてカウント）
+        const monthAttendanceDays = new Set(
+          monthLogs
+            .filter(log => log.entryTime !== "-")
+            .map(log => log.date)
+        ).size
+
         // 年の労働日数を計算
         const yearWorkingDays = Array.from(workingDays).filter(date => {
           const [logYear] = date.split("/").map(Number)
           return logYear === year
         }).length
+
+        // 年の出勤日数を計算（同日の複数回出勤は1回としてカウント）
+        const yearAttendanceDays = new Set(
+          logs
+            .filter(log => log.entryTime !== "-")
+            .map(log => log.date)
+        ).size
 
         // 平均勤務時間を計算
         const monthWorkTimes = monthLogs
@@ -234,7 +248,7 @@ export function DashboardContent() {
             ? `${avgWorkHours}時間${String(avgWorkMins).padStart(2, "0")}分`
             : "0時間",
           rate: monthWorkingDays > 0
-            ? `${Math.round((monthLogs.filter(log => log.entryTime !== "-").length / monthWorkingDays) * 100)}%`
+            ? `${Math.round((monthAttendanceDays / monthWorkingDays) * 100)}%`
             : "0%"
         }
 
@@ -259,7 +273,7 @@ export function DashboardContent() {
             ? `${avgYearlyWorkHours}時間${String(avgYearlyWorkMins).padStart(2, "0")}分`
             : "0時間",
           rate: yearWorkingDays > 0
-            ? `${Math.round((attendanceCount / yearWorkingDays) * 100)}%`
+            ? `${Math.round((yearAttendanceDays / yearWorkingDays) * 100)}%`
             : "0%"
         }
 
