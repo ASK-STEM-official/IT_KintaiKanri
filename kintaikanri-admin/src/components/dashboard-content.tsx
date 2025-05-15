@@ -235,10 +235,26 @@ export function DashboardContent() {
           rate: `${Math.round((attendanceCount / 240) * 100)}%` // 年間営業日を240日と仮定
         }
 
+        // 最新の出勤記録を取得
+        const latestEntry = sortedLogs
+          .filter(doc => doc.data().type === "entry")
+          .pop()
+        
+        // 最新の退勤記録を取得
+        const latestExit = sortedLogs
+          .filter(doc => doc.data().type === "exit")
+          .pop()
+
+        // 勤務状況を判定（最新の出勤が最新の退勤より新しい場合は勤務中）
+        const isWorking = Boolean(latestEntry && (!latestExit || 
+          (latestEntry.data().timestamp as Timestamp).toDate().getTime() > 
+          (latestExit.data().timestamp as Timestamp).toDate().getTime()
+        ))
+
         setUserData({
           name: `${userData.lastname} ${userData.firstname}`,
           team: teamName,
-          isWorking: logs[0]?.entryTime !== "-" && logs[0]?.exitTime === "-",
+          isWorking,
           lastWorkDate: logs[0]?.date || "データなし",
           totalAttendance: attendanceCount
         })
