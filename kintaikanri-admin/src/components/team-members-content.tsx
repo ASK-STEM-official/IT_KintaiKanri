@@ -41,19 +41,34 @@ export function TeamMembersContent() {
   const [monthlyTeamMembers, setMonthlyTeamMembers] = useState<MonthlyTeamMembers>({})
   const [yearlyTeamMembers, setYearlyTeamMembers] = useState<YearlyTeamMembers>({})
 
-  // 月選択用の選択肢を生成（過去12ヶ月分）
-  const monthOptions = Array.from({ length: 12 }, (_, i) => {
-    const date = new Date()
+  // 現在の年月を取得
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth()
+
+  // 月選択用の選択肢を生成（2024年1月から今月まで）
+  const monthOptions = Array.from({ length: 24 }, (_, i) => {
+    const date = new Date(currentYear, currentMonth)
     date.setMonth(date.getMonth() - i)
+    
+    // 2024年1月以前または今月以降は除外
+    if (
+      date.getFullYear() < 2024 || 
+      (date.getFullYear() === 2024 && date.getMonth() < 0) ||
+      date.getFullYear() > currentYear ||
+      (date.getFullYear() === currentYear && date.getMonth() > currentMonth)
+    ) {
+      return null
+    }
     return {
       value: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
       label: `${date.getFullYear()}年${date.getMonth() + 1}月`,
     }
-  })
+  }).filter((option): option is NonNullable<typeof option> => option !== null)
 
-  // 年選択用の選択肢を生成（過去5年分）
-  const yearOptions = Array.from({ length: 5 }, (_, i) => {
-    const year = new Date().getFullYear() - i
+  // 年選択用の選択肢を生成（2024年から今年まで）
+  const yearOptions = Array.from({ length: currentYear - 2023 }, (_, i) => {
+    const year = currentYear - i
     return {
       value: year.toString(),
       label: `${year}年`,
@@ -65,13 +80,31 @@ export function TeamMembersContent() {
     const [year, month] = selectedMonth.split("-").map(Number)
     const date = new Date(year, month - 1)
     date.setMonth(date.getMonth() + (direction === "prev" ? -1 : 1))
+    
+    // 2024年1月以前または今月以降には移動できない
+    if (
+      date.getFullYear() < 2024 || 
+      (date.getFullYear() === 2024 && date.getMonth() < 0) ||
+      date.getFullYear() > currentYear ||
+      (date.getFullYear() === currentYear && date.getMonth() > currentMonth)
+    ) {
+      return
+    }
+    
     setSelectedMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`)
   }
 
   // 年の移動
   const moveYear = (direction: "prev" | "next") => {
     const year = parseInt(selectedYear)
-    setSelectedYear((year + (direction === "prev" ? -1 : 1)).toString())
+    const newYear = year + (direction === "prev" ? -1 : 1)
+    
+    // 2024年以前または今年以降には移動できない
+    if (newYear < 2024 || newYear > currentYear) {
+      return
+    }
+    
+    setSelectedYear(newYear.toString())
   }
 
   // 学年を計算する関数
