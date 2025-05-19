@@ -1,16 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { collection, query, where, getDocs, addDoc, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
+import { recordWorkdayIfFirstEntry } from "@/lib/workday";
 
 export default function Dashboard() {
   const [currentTime, setCurrentTime] = useState<string>("");
   const [greeting, setGreeting] = useState<string>("");
   const [showGreeting, setShowGreeting] = useState<boolean>(false);
   const [buffer, setBuffer] = useState<string>("");
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
+  // クリーンアップ関数
+  const cleanup = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+  };
+
+  // コンポーネントのアンマウント時にクリーンアップ
+  useEffect(() => {
+    return cleanup;
+  }, []);
 
   // 時刻更新
   useEffect(() => {
@@ -29,6 +44,8 @@ export default function Dashboard() {
   // ページ全体でキー入力を受け付ける
   useEffect(() => {
     const handleKeydown = (e: KeyboardEvent) => {
+      if (isProcessing) return; // 処理中は入力を無視
+
       if (e.key === "Enter") {
         if (buffer.length > 0) {
           handleAttendance(buffer);
@@ -44,10 +61,15 @@ export default function Dashboard() {
 
     window.addEventListener("keydown", handleKeydown);
     return () => window.removeEventListener("keydown", handleKeydown);
-  }, [buffer]);
+  }, [buffer, isProcessing]);
 
   // 出退勤処理
   const handleAttendance = async (cardId: string) => {
+    if (isProcessing) return; // 二重実行防止
+
+    setIsProcessing(true);
+    cleanup(); // 既存のタイムアウトをクリア
+
     try {
       // `users` コレクションから該当するユーザーを取得
       const userQuery = query(collection(db, "users"), where("cardId", "==", cardId));
@@ -56,7 +78,7 @@ export default function Dashboard() {
       if (userSnapshot.empty) {
         setGreeting("カードIDが登録されていません");
         setShowGreeting(true);
-        setTimeout(() => setShowGreeting(false), 3000);
+        timeoutRef.current = setTimeout(() => setShowGreeting(false), 3000);
         return;
       }
 
@@ -78,6 +100,14 @@ export default function Dashboard() {
         // 直近が退勤またはログがない場合 → 出勤
         newLogType = "entry";
         setGreeting(`${user.lastname} さん、いってらっしゃい`);
+
+        // 出勤時のみ労働日数を記録
+        try {
+          await recordWorkdayIfFirstEntry();
+        } catch (error) {
+          console.error("労働日数の記録に失敗しました:", error);
+          // 労働日数の記録失敗は出退勤処理に影響を与えない
+        }
       } else {
         // 直近が出勤の場合 → 退勤
         newLogType = "exit";
@@ -93,12 +123,14 @@ export default function Dashboard() {
       });
 
       setShowGreeting(true);
-      setTimeout(() => setShowGreeting(false), 3000);
+      timeoutRef.current = setTimeout(() => setShowGreeting(false), 3000);
     } catch (error) {
       console.error("出退勤処理エラー:", error);
       setGreeting("エラーが発生しました");
       setShowGreeting(true);
-      setTimeout(() => setShowGreeting(false), 3000);
+      timeoutRef.current = setTimeout(() => setShowGreeting(false), 3000);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -113,10 +145,12 @@ export default function Dashboard() {
           <h3 className="text-xl font-medium text-green-600">{greeting}</h3>
         )}
 
-        <h3 className="text-xl font-medium">NFC/RFIDカードをタッチしてください</h3>
+        <h3 className="text-xl font-medium">
+          {isProcessing ? "処理中..." : "NFC/RFIDカードをタッチしてください"}
+        </h3>
 
         {/* 入力中のカードID表示（任意） */}
-        {buffer && (
+        {buffer && !isProcessing && (
           <p className="text-md text-blue-600 font-mono">
             入力中: {buffer}
           </p>
@@ -124,7 +158,7 @@ export default function Dashboard() {
 
         {/* 新規登録 */}
         <Link href="/register">
-          <Button size="lg">新規登録</Button>
+          <Button size="lg" disabled={isProcessing}>新規登録</Button>
         </Link>
       </div>
     </div>
