@@ -14,6 +14,7 @@ export function TeamDashboardContent() {
   const [workingMembers, setWorkingMembers] = useState(0)
   const [totalMembers, setTotalMembers] = useState(0)
   const [todayAttendanceRate, setTodayAttendanceRate] = useState("0%")
+  const [todayAvgWorkTime, setTodayAvgWorkTime] = useState("0時間0分")
 
   // 年/月/日の選択状態
   const [selectedYear, setSelectedYear] = useState(() => {
@@ -99,16 +100,30 @@ export function TeamDashboardContent() {
         const logsQuery = query(
           logsRef,
           where("timestamp", ">=", Timestamp.fromDate(startOfDay)),
-          where("timestamp", "<", Timestamp.fromDate(endOfDay)),
-          where("type", "==", "entry")
+          where("timestamp", "<", Timestamp.fromDate(endOfDay))
         )
         const logsSnapshot = await getDocs(logsQuery)
 
-        // 出勤したユーザーのユニーク数をカウント
-        const attendedUsers = new Set<string>()
+        // ユーザーごとの出退勤ログを整理
+        const userLogs = new Map<string, { entries: Timestamp[], exits: Timestamp[] }>()
         logsSnapshot.docs.forEach(doc => {
           const log = doc.data()
-          attendedUsers.add(log.uid)
+          if (!userLogs.has(log.uid)) {
+            userLogs.set(log.uid, { entries: [], exits: [] })
+          }
+          if (log.type === "entry") {
+            userLogs.get(log.uid)?.entries.push(log.timestamp)
+          } else {
+            userLogs.get(log.uid)?.exits.push(log.timestamp)
+          }
+        })
+
+        // 出勤したユーザーのユニーク数をカウント
+        const attendedUsers = new Set<string>()
+        userLogs.forEach((logs, uid) => {
+          if (logs.entries.length > 0) {
+            attendedUsers.add(uid)
+          }
         })
 
         // 出勤率を計算
@@ -116,6 +131,32 @@ export function TeamDashboardContent() {
           ? Math.round((attendedUsers.size / totalCount) * 100)
           : 0
         setTodayAttendanceRate(`${attendanceRate}%`)
+
+        // 平均勤務時間を計算
+        let totalWorkTime = 0
+        let validWorkDays = 0
+        userLogs.forEach((logs) => {
+          logs.entries.forEach((entry, index) => {
+            const exit = logs.exits[index]
+            if (exit) {
+              const workTime = exit.toDate().getTime() - entry.toDate().getTime()
+              // 勤務時間が1分以上の場合のみカウント
+              if (workTime >= 60 * 1000) {
+                totalWorkTime += workTime
+                validWorkDays++
+              }
+            }
+          })
+        })
+
+        // 平均勤務時間を計算して表示形式に変換
+        const avgWorkTimeMs = validWorkDays > 0 ? totalWorkTime / validWorkDays : 0
+        const avgWorkHours = Math.floor(avgWorkTimeMs / (1000 * 60 * 60))
+        const avgWorkMinutes = Math.floor((avgWorkTimeMs % (1000 * 60 * 60)) / (1000 * 60))
+        const avgWorkTime = validWorkDays > 0
+          ? `${avgWorkHours}時間${avgWorkMinutes}分`
+          : "0時間0分"
+        setTodayAvgWorkTime(avgWorkTime)
 
         // 勤務中のメンバーを取得
         const currentTimestamp = Timestamp.now()
@@ -272,7 +313,7 @@ export function TeamDashboardContent() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="font-medium">今日の平均勤務時間:</span>
-                <span>{teamData.todayAvgWorkTime}</span>
+                <span>{todayAvgWorkTime}</span>
               </div>
             </div>
           </CardContent>
