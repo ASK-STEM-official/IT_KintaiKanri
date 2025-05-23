@@ -6,9 +6,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { UsersIcon, BarChart3Icon } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { db } from "@/lib/firebase/config"
+import { collection, query, where, getDocs, Timestamp } from "firebase/firestore"
 
 export function TeamDashboardContent() {
   const [timeRange, setTimeRange] = useState("month")
+  const [workingMembers, setWorkingMembers] = useState(0)
+  const [totalMembers, setTotalMembers] = useState(0)
 
   // 年/月/日の選択状態
   const [selectedYear, setSelectedYear] = useState(() => {
@@ -70,6 +74,58 @@ export function TeamDashboardContent() {
       setSelectedDay(String(daysInMonth).padStart(2, "0"))
     }
   }, [selectedYear, selectedMonth])
+
+  // Firestoreからデータを取得
+  useEffect(() => {
+    const fetchTeamData = async () => {
+      try {
+        // 全メンバー数を取得
+        const usersRef = collection(db, "users")
+        const usersSnapshot = await getDocs(usersRef)
+        setTotalMembers(usersSnapshot.size)
+
+        // 勤務中のメンバーを取得
+        const now = Timestamp.now()
+        const logsRef = collection(db, "attendance_logs")
+        const logsQuery = query(
+          logsRef,
+          where("timestamp", ">=", new Timestamp(now.seconds - 24 * 60 * 60, 0))
+        )
+        const logsSnapshot = await getDocs(logsQuery)
+
+        // ユーザーごとの最新の出退勤状態を確認
+        const userStatus = new Map<string, { lastEntry?: Timestamp, lastExit?: Timestamp }>()
+        logsSnapshot.docs.forEach(doc => {
+          const log = doc.data()
+          const userLogs = userStatus.get(log.uid) || { lastEntry: undefined, lastExit: undefined }
+          
+          if (log.type === "entry") {
+            if (!userLogs.lastEntry || log.timestamp > userLogs.lastEntry) {
+              userLogs.lastEntry = log.timestamp
+            }
+          } else {
+            if (!userLogs.lastExit || log.timestamp > userLogs.lastExit) {
+              userLogs.lastExit = log.timestamp
+            }
+          }
+          userStatus.set(log.uid, userLogs)
+        })
+
+        // 勤務中の人数をカウント
+        let workingCount = 0
+        userStatus.forEach((status) => {
+          if (status.lastEntry && (!status.lastExit || status.lastEntry > status.lastExit)) {
+            workingCount++
+          }
+        })
+        setWorkingMembers(workingCount)
+      } catch (error) {
+        console.error("班データの取得に失敗しました:", error)
+      }
+    }
+
+    fetchTeamData()
+  }, [])
 
   // ダミーデータ - 班情報
   const teamData = {
@@ -176,7 +232,7 @@ export function TeamDashboardContent() {
               <div className="flex items-center justify-between">
                 <span className="font-medium">勤務中:</span>
                 <span>
-                  {teamData.workingMembers}/{teamData.totalMembers}人
+                  {workingMembers}/{totalMembers}人
                 </span>
               </div>
               <div className="flex items-center justify-between">
