@@ -13,6 +13,7 @@ export function TeamDashboardContent() {
   const [timeRange, setTimeRange] = useState("month")
   const [workingMembers, setWorkingMembers] = useState(0)
   const [totalMembers, setTotalMembers] = useState(0)
+  const [todayAttendanceRate, setTodayAttendanceRate] = useState("0%")
 
   // 年/月/日の選択状態
   const [selectedYear, setSelectedYear] = useState(() => {
@@ -82,20 +83,51 @@ export function TeamDashboardContent() {
         // 全メンバー数を取得
         const usersRef = collection(db, "users")
         const usersSnapshot = await getDocs(usersRef)
-        setTotalMembers(usersSnapshot.size)
+        const totalCount = usersSnapshot.size
+        setTotalMembers(totalCount)
 
-        // 勤務中のメンバーを取得
-        const now = Timestamp.now()
+        // 今日の日付を取得（日本時間）
+        const currentDate = new Date()
+        const jstNow = new Date(currentDate.getTime() + (9 * 60 * 60 * 1000))
+        const today = jstNow.toISOString().split('T')[0]
+        const startOfDay = new Date(today)
+        const endOfDay = new Date(today)
+        endOfDay.setDate(endOfDay.getDate() + 1)
+
+        // 今日の出勤ログを取得
         const logsRef = collection(db, "attendance_logs")
         const logsQuery = query(
           logsRef,
-          where("timestamp", ">=", new Timestamp(now.seconds - 24 * 60 * 60, 0))
+          where("timestamp", ">=", Timestamp.fromDate(startOfDay)),
+          where("timestamp", "<", Timestamp.fromDate(endOfDay)),
+          where("type", "==", "entry")
         )
         const logsSnapshot = await getDocs(logsQuery)
 
+        // 出勤したユーザーのユニーク数をカウント
+        const attendedUsers = new Set<string>()
+        logsSnapshot.docs.forEach(doc => {
+          const log = doc.data()
+          attendedUsers.add(log.uid)
+        })
+
+        // 出勤率を計算
+        const attendanceRate = totalCount > 0
+          ? Math.round((attendedUsers.size / totalCount) * 100)
+          : 0
+        setTodayAttendanceRate(`${attendanceRate}%`)
+
+        // 勤務中のメンバーを取得
+        const currentTimestamp = Timestamp.now()
+        const workingLogsQuery = query(
+          logsRef,
+          where("timestamp", ">=", new Timestamp(currentTimestamp.seconds - 24 * 60 * 60, 0))
+        )
+        const workingLogsSnapshot = await getDocs(workingLogsQuery)
+
         // ユーザーごとの最新の出退勤状態を確認
         const userStatus = new Map<string, { lastEntry?: Timestamp, lastExit?: Timestamp }>()
-        logsSnapshot.docs.forEach(doc => {
+        workingLogsSnapshot.docs.forEach(doc => {
           const log = doc.data()
           const userLogs = userStatus.get(log.uid) || { lastEntry: undefined, lastExit: undefined }
           
@@ -132,7 +164,6 @@ export function TeamDashboardContent() {
     name: "開発班",
     totalMembers: 24,
     workingMembers: 14,
-    todayAttendanceRate: "58%",
     todayAvgWorkTime: "5時間30分",
     monthlyAvgAttendance: "18人",
     monthlyAttendanceRate: "75%",
@@ -237,7 +268,7 @@ export function TeamDashboardContent() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="font-medium">今日の出勤率:</span>
-                <span>{teamData.todayAttendanceRate}</span>
+                <span>{todayAttendanceRate}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="font-medium">今日の平均勤務時間:</span>
