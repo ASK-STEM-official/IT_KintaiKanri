@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { db } from "@/lib/firebase/config"
-import { collection, query, where, getDocs, Timestamp } from "firebase/firestore"
+import { collection, query, where, getDocs, Timestamp, doc, getDoc, DocumentData, QueryDocumentSnapshot } from "firebase/firestore"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -27,6 +27,11 @@ type MonthlyTeamMembers = {
 
 type YearlyTeamMembers = {
   [key: string]: TeamMember[]
+}
+
+type SummaryData = {
+  totalDays: number
+  updatedAt: Date
 }
 
 export function TeamMembersContent() {
@@ -162,35 +167,79 @@ export function TeamMembersContent() {
         })
 
         // メンバー情報を生成
-        const members = usersSnapshot.docs.map(doc => {
-          const data = doc.data()
+        const members = await Promise.all(usersSnapshot.docs.map(async (userDoc) => {
+          const data = userDoc.data()
           const enrollmentYear = 2016 + data.grade - 1
-          const logs = userLogs.get(doc.id) || { entries: [], exits: [] }
+          const logs = userLogs.get(userDoc.id) || { entries: [], exits: [] }
           
-          // 出勤日数を計算（同じ日の出勤は1日としてカウント）
-          const attendanceDays = new Set(
-            logs.entries.map(entry => 
-              entry.toDate().toISOString().split('T')[0]
-            )
-          ).size
+          // 累計出勤日数（attendance_logsから該当uidのentry数をカウント）
+          const attendanceLogsQuery = query(
+            collection(db, "attendance_logs"),
+            where("uid", "==", userDoc.id),
+            where("type", "==", "entry")
+          )
+          const attendanceLogsSnapshot = await getDocs(attendanceLogsQuery)
+          const uniqueDays = new Set<string>()
+          attendanceLogsSnapshot.forEach(logDoc => {
+            const log = logDoc.data()
+            const date = log.timestamp.toDate().toISOString().split('T')[0]
+            uniqueDays.add(date)
+          })
+          const attendanceDays = uniqueDays.size
 
           // 平均勤務時間を計算
           let totalWorkTime = 0
+          let validWorkDays = 0
           logs.entries.forEach((entry, index) => {
             const exit = logs.exits[index]
             if (exit) {
-              totalWorkTime += exit.toDate().getTime() - entry.toDate().getTime()
+              const workTime = exit.toDate().getTime() - entry.toDate().getTime()
+              // 勤務時間が1分以上の場合のみカウント
+              if (workTime >= 60 * 1000) {
+                totalWorkTime += workTime
+                validWorkDays++
+              }
             }
           })
-          const avgWorkTimeMs = attendanceDays > 0 ? totalWorkTime / attendanceDays : 0
+          const avgWorkTimeMs = validWorkDays > 0 ? totalWorkTime / validWorkDays : 0
           const avgWorkHours = Math.floor(avgWorkTimeMs / (1000 * 60 * 60))
           const avgWorkMinutes = Math.floor((avgWorkTimeMs % (1000 * 60 * 60)) / (1000 * 60))
-          const avgWorkTime = `${avgWorkHours}時間${avgWorkMinutes}分`
+          const avgWorkTime = validWorkDays > 0 
+            ? `${avgWorkHours}時間${avgWorkMinutes}分`
+            : "0時間0分"
 
-          // 出勤率を計算（月次の場合のみ）
-          const attendanceRate = timeRange === "month" 
-            ? `${Math.round((attendanceDays / 20) * 100)}%` // 月20日勤務を想定
-            : `${Math.round((attendanceDays / 240) * 100)}%` // 年240日勤務を想定
+          // 出勤率を計算
+          let totalWorkDays = 0
+          if (timeRange === "month") {
+            // 月次の場合、summaryコレクションから該当月のtotalDaysを取得
+            const [year, month] = selectedMonth.split("-")
+            const summaryRef = doc(db, "summary", `workdays_${year}_${month}`)
+            const summaryDoc = await getDoc(summaryRef)
+            if (summaryDoc.exists()) {
+              const summaryData = summaryDoc.data() as { totalDays?: number }
+              totalWorkDays = summaryData.totalDays ?? 0
+            }
+          } else {
+            // 年次の場合、その年の各月のtotalDaysを合計
+            const year = selectedYear
+            const monthlyTotals = await Promise.all(
+              Array.from({ length: 12 }, async (_, i) => {
+                const month = String(i + 1).padStart(2, "0")
+                const summaryRef = doc(db, "summary", `workdays_${year}_${month}`)
+                const summaryDoc = await getDoc(summaryRef)
+                if (summaryDoc.exists()) {
+                  const data = summaryDoc.data() as { totalDays?: number }
+                  return data.totalDays ?? 0
+                }
+                return 0
+              })
+            )
+            totalWorkDays = monthlyTotals.reduce((sum, days) => sum + days, 0)
+          }
+
+          const attendanceRate = totalWorkDays > 0
+            ? `${Math.round((attendanceDays / totalWorkDays) * 100)}%`
+            : "0%"
 
           // 現在の勤務状況を判定
           const now = Timestamp.now()
@@ -212,16 +261,18 @@ export function TeamMembersContent() {
             grade: data.grade,
             enrollmentYear
           }
-        })
+        }))
 
         // 月次データを更新
         const monthlyData = { ...monthlyTeamMembers }
-        monthlyData[selectedMonth] = members
+        const monthlyMembers = await Promise.all(members)
+        monthlyData[selectedMonth] = monthlyMembers
         setMonthlyTeamMembers(monthlyData)
 
         // 年次データを更新
         const yearlyData = { ...yearlyTeamMembers }
-        yearlyData[selectedYear] = members
+        const yearlyMembers = await Promise.all(members)
+        yearlyData[selectedYear] = yearlyMembers
         setYearlyTeamMembers(yearlyData)
       } catch (error) {
         console.error("班員データの取得に失敗しました:", error)
