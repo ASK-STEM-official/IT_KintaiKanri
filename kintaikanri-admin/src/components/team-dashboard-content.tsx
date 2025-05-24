@@ -628,7 +628,7 @@ export function TeamDashboardContent() {
               </Select>
 
               <Select value={selectedDay} onValueChange={setSelectedDay}>
-                <SelectTrigger className="h-7 text-sm w-[70px]">
+                <SelectTrigger className="h-7 text-sm w-[80px]">
                   <SelectValue placeholder="日" />
                 </SelectTrigger>
                 <SelectContent>
