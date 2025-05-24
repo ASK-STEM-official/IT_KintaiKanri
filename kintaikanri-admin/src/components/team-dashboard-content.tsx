@@ -87,6 +87,13 @@ export function TeamDashboardContent() {
     }
   }, [selectedYear, selectedMonth])
 
+  const [selectedDateAttendance, setSelectedDateAttendance] = useState<{
+    name: string
+    entryTime: string
+    exitTime: string
+    workTime: string
+  }[]>([])
+
   // Firestoreからデータを取得
   useEffect(() => {
     const fetchTeamData = async () => {
@@ -101,16 +108,16 @@ export function TeamDashboardContent() {
         const currentDate = new Date()
         const jstNow = new Date(currentDate.getTime() + (9 * 60 * 60 * 1000))
         const today = jstNow.toISOString().split('T')[0]
-        const startOfDay = new Date(today)
-        const endOfDay = new Date(today)
-        endOfDay.setDate(endOfDay.getDate() + 1)
+        const todayStart = new Date(today)
+        const todayEnd = new Date(today)
+        todayEnd.setDate(todayEnd.getDate() + 1)
 
         // 今日の出勤ログを取得
         const logsRef = collection(db, "attendance_logs")
         const logsQuery = query(
           logsRef,
-          where("timestamp", ">=", Timestamp.fromDate(startOfDay)),
-          where("timestamp", "<", Timestamp.fromDate(endOfDay))
+          where("timestamp", ">=", Timestamp.fromDate(todayStart)),
+          where("timestamp", "<", Timestamp.fromDate(todayEnd))
         )
         const logsSnapshot = await getDocs(logsQuery)
 
@@ -354,13 +361,72 @@ export function TeamDashboardContent() {
             avgWorkTime: `${yearlyAvgWorkHours}時間${yearlyAvgWorkMinutes}分`
           })
         }
+
+        // 選択された日付の出退勤履歴を取得
+        const selectedDate = new Date(Number.parseInt(selectedYear), Number.parseInt(selectedMonth) - 1, Number.parseInt(selectedDay))
+        const selectedDateStart = new Date(selectedDate)
+        const selectedDateEnd = new Date(selectedDate)
+        selectedDateEnd.setDate(selectedDateEnd.getDate() + 1)
+
+        const dailyLogsQuery = query(
+          logsRef,
+          where("timestamp", ">=", Timestamp.fromDate(selectedDateStart)),
+          where("timestamp", "<", Timestamp.fromDate(selectedDateEnd))
+        )
+        const dailyLogsSnapshot = await getDocs(dailyLogsQuery)
+
+        // ユーザーごとの出退勤ログを整理
+        const dailyUserLogs = new Map<string, { name: string, entries: Timestamp[], exits: Timestamp[] }>()
+        dailyLogsSnapshot.docs.forEach(doc => {
+          const log = doc.data()
+          if (!dailyUserLogs.has(log.uid)) {
+            // ユーザー情報を取得
+            const userDoc = usersSnapshot.docs.find(d => d.id === log.uid)
+            const userData = userDoc?.data()
+            const name = userData ? `${userData.lastname} ${userData.firstname}` : "不明"
+            dailyUserLogs.set(log.uid, { name, entries: [], exits: [] })
+          }
+          if (log.type === "entry") {
+            dailyUserLogs.get(log.uid)?.entries.push(log.timestamp)
+          } else {
+            dailyUserLogs.get(log.uid)?.exits.push(log.timestamp)
+          }
+        })
+
+        // 出退勤履歴を生成
+        const attendanceHistory = Array.from(dailyUserLogs.entries()).map(([_, logs]) => {
+          const entryTime = logs.entries[0]?.toDate().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) || "-"
+          const exitTime = logs.exits[0]?.toDate().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) || "-"
+          
+          let workTime = "-"
+          if (logs.entries[0] && logs.exits[0]) {
+            const workTimeMs = logs.exits[0].toDate().getTime() - logs.entries[0].toDate().getTime()
+            if (workTimeMs >= 60 * 1000) {
+              const hours = Math.floor(workTimeMs / (1000 * 60 * 60))
+              const minutes = Math.floor((workTimeMs % (1000 * 60 * 60)) / (1000 * 60))
+              workTime = `${hours}:${minutes.toString().padStart(2, '0')}`
+            }
+          }
+
+          return {
+            name: logs.name,
+            entryTime,
+            exitTime,
+            workTime
+          }
+        })
+
+        // 名前でソート
+        attendanceHistory.sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+        setSelectedDateAttendance(attendanceHistory)
+
       } catch (error) {
         console.error("班データの取得に失敗しました:", error)
       }
     }
 
     fetchTeamData()
-  }, [selectedYear, selectedMonth])
+  }, [selectedYear, selectedMonth, selectedDay])
 
   // ダミーデータ - 班情報
   const teamData = {
@@ -442,9 +508,6 @@ export function TeamDashboardContent() {
       { name: "村田 翔太", entryTime: "08:30", exitTime: "16:15", workTime: "7:45" },
     ],
   }
-
-  // 選択された日付の班員勤怠データを取得
-  const selectedDateAttendance = teamMembersAttendance[selectedDate] || []
 
   // 表示用の日付フォーマット
   const displayDate = `${selectedYear}年${Number.parseInt(selectedMonth)}月${Number.parseInt(selectedDay)}日`
@@ -579,7 +642,7 @@ export function TeamDashboardContent() {
 
               <div className="text-sm text-gray-500 ml-2">
                 {selectedDateAttendance.length > 0
-                  ? `${selectedDateAttendance.filter((m: TeamMemberAttendance) => m.entryTime !== "-").length}/${selectedDateAttendance.length}人出勤`
+                  ? `${selectedDateAttendance.filter(m => m.entryTime !== "-").length}/${selectedDateAttendance.length}人出勤`
                   : "データなし"}
               </div>
             </div>
@@ -598,7 +661,7 @@ export function TeamDashboardContent() {
               </TableHeader>
               <TableBody className="relative">
                 {selectedDateAttendance.length > 0 ? (
-                  selectedDateAttendance.map((member: TeamMemberAttendance, index: number) => (
+                  selectedDateAttendance.map((member, index) => (
                     <TableRow key={index} className="hover:bg-gray-50">
                       <TableCell className="text-sm py-1 h-9">{member.name}</TableCell>
                       <TableCell className="text-sm py-1 h-9">{member.entryTime}</TableCell>
