@@ -15,6 +15,16 @@ export function TeamDashboardContent() {
   const [totalMembers, setTotalMembers] = useState(0)
   const [todayAttendanceRate, setTodayAttendanceRate] = useState("0%")
   const [todayAvgWorkTime, setTodayAvgWorkTime] = useState("0時間0分")
+  const [monthlyStats, setMonthlyStats] = useState({
+    avgAttendance: "0人",
+    attendanceRate: "0%",
+    avgWorkTime: "0時間0分"
+  })
+  const [yearlyStats, setYearlyStats] = useState({
+    avgAttendance: "0人",
+    attendanceRate: "0%",
+    avgWorkTime: "0時間0分"
+  })
 
   // 年/月/日の選択状態
   const [selectedYear, setSelectedYear] = useState(() => {
@@ -192,13 +202,165 @@ export function TeamDashboardContent() {
           }
         })
         setWorkingMembers(workingCount)
+
+        // 月次統計情報の取得
+        const monthlySummaryRef = collection(db, "summary")
+        const monthlySummaryQuery = query(
+          monthlySummaryRef,
+          where("year", "==", Number.parseInt(selectedYear)),
+          where("month", "==", Number.parseInt(selectedMonth))
+        )
+        const monthlySummarySnapshot = await getDocs(monthlySummaryQuery)
+        
+        if (!monthlySummarySnapshot.empty) {
+          const monthlyData = monthlySummarySnapshot.docs[0].data()
+          const workDays = monthlyData.workdays || 0
+          
+          // 月次の出勤ログを取得
+          const startOfMonth = new Date(Number.parseInt(selectedYear), Number.parseInt(selectedMonth) - 1, 1)
+          const endOfMonth = new Date(Number.parseInt(selectedYear), Number.parseInt(selectedMonth), 0)
+          
+          const monthlyLogsQuery = query(
+            logsRef,
+            where("timestamp", ">=", Timestamp.fromDate(startOfMonth)),
+            where("timestamp", "<=", Timestamp.fromDate(endOfMonth))
+          )
+          const monthlyLogsSnapshot = await getDocs(monthlyLogsQuery)
+
+          // 月次の統計を計算
+          const monthlyUserLogs = new Map<string, { uid: string, entries: Timestamp[], exits: Timestamp[] }>()
+          monthlyLogsSnapshot.docs.forEach(doc => {
+            const log = doc.data()
+            if (!monthlyUserLogs.has(log.uid)) {
+              monthlyUserLogs.set(log.uid, { uid: log.uid, entries: [], exits: [] })
+            }
+            if (log.type === "entry") {
+              monthlyUserLogs.get(log.uid)?.entries.push(log.timestamp)
+            } else {
+              monthlyUserLogs.get(log.uid)?.exits.push(log.timestamp)
+            }
+          })
+
+          // 月次の平均出勤人数と出勤率を計算
+          const monthlyAttendedUsers = new Set<string>()
+          let monthlyTotalWorkTime = 0
+          let monthlyValidWorkDays = 0
+
+          monthlyUserLogs.forEach((logs) => {
+            if (logs.entries.length > 0) {
+              monthlyAttendedUsers.add(logs.uid)
+            }
+            logs.entries.forEach((entry, index) => {
+              const exit = logs.exits[index]
+              if (exit) {
+                const workTime = exit.toDate().getTime() - entry.toDate().getTime()
+                if (workTime >= 60 * 1000) {
+                  monthlyTotalWorkTime += workTime
+                  monthlyValidWorkDays++
+                }
+              }
+            })
+          })
+
+          const monthlyAvgAttendance = Math.round(monthlyAttendedUsers.size / workDays)
+          const monthlyAttendanceRate = totalCount > 0
+            ? Math.round((monthlyAttendedUsers.size / (totalCount * workDays)) * 100)
+            : 0
+
+          const monthlyAvgWorkTimeMs = monthlyValidWorkDays > 0 ? monthlyTotalWorkTime / monthlyValidWorkDays : 0
+          const monthlyAvgWorkHours = Math.floor(monthlyAvgWorkTimeMs / (1000 * 60 * 60))
+          const monthlyAvgWorkMinutes = Math.floor((monthlyAvgWorkTimeMs % (1000 * 60 * 60)) / (1000 * 60))
+
+          setMonthlyStats({
+            avgAttendance: `${monthlyAvgAttendance}人`,
+            attendanceRate: `${monthlyAttendanceRate}%`,
+            avgWorkTime: `${monthlyAvgWorkHours}時間${monthlyAvgWorkMinutes}分`
+          })
+        }
+
+        // 年次統計情報の取得
+        const yearlySummaryQuery = query(
+          monthlySummaryRef,
+          where("year", "==", Number.parseInt(selectedYear))
+        )
+        const yearlySummarySnapshot = await getDocs(yearlySummaryQuery)
+        
+        if (!yearlySummarySnapshot.empty) {
+          // 年間の労働日数を計算
+          let totalWorkDays = 0
+          yearlySummarySnapshot.docs.forEach(doc => {
+            const data = doc.data()
+            totalWorkDays += data.workdays || 0
+          })
+
+          // 年次の出勤ログを取得
+          const startOfYear = new Date(Number.parseInt(selectedYear), 0, 1)
+          const endOfYear = new Date(Number.parseInt(selectedYear), 11, 31)
+          
+          const yearlyLogsQuery = query(
+            logsRef,
+            where("timestamp", ">=", Timestamp.fromDate(startOfYear)),
+            where("timestamp", "<=", Timestamp.fromDate(endOfYear))
+          )
+          const yearlyLogsSnapshot = await getDocs(yearlyLogsQuery)
+
+          // 年次の統計を計算
+          const yearlyUserLogs = new Map<string, { uid: string, entries: Timestamp[], exits: Timestamp[] }>()
+          yearlyLogsSnapshot.docs.forEach(doc => {
+            const log = doc.data()
+            if (!yearlyUserLogs.has(log.uid)) {
+              yearlyUserLogs.set(log.uid, { uid: log.uid, entries: [], exits: [] })
+            }
+            if (log.type === "entry") {
+              yearlyUserLogs.get(log.uid)?.entries.push(log.timestamp)
+            } else {
+              yearlyUserLogs.get(log.uid)?.exits.push(log.timestamp)
+            }
+          })
+
+          // 年次の平均出勤人数と出勤率を計算
+          const yearlyAttendedUsers = new Set<string>()
+          let yearlyTotalWorkTime = 0
+          let yearlyValidWorkDays = 0
+
+          yearlyUserLogs.forEach((logs) => {
+            if (logs.entries.length > 0) {
+              yearlyAttendedUsers.add(logs.uid)
+            }
+            logs.entries.forEach((entry, index) => {
+              const exit = logs.exits[index]
+              if (exit) {
+                const workTime = exit.toDate().getTime() - entry.toDate().getTime()
+                if (workTime >= 60 * 1000) {
+                  yearlyTotalWorkTime += workTime
+                  yearlyValidWorkDays++
+                }
+              }
+            })
+          })
+
+          const yearlyAvgAttendance = Math.round(yearlyAttendedUsers.size / totalWorkDays)
+          const yearlyAttendanceRate = totalCount > 0
+            ? Math.round((yearlyAttendedUsers.size / (totalCount * totalWorkDays)) * 100)
+            : 0
+
+          const yearlyAvgWorkTimeMs = yearlyValidWorkDays > 0 ? yearlyTotalWorkTime / yearlyValidWorkDays : 0
+          const yearlyAvgWorkHours = Math.floor(yearlyAvgWorkTimeMs / (1000 * 60 * 60))
+          const yearlyAvgWorkMinutes = Math.floor((yearlyAvgWorkTimeMs % (1000 * 60 * 60)) / (1000 * 60))
+
+          setYearlyStats({
+            avgAttendance: `${yearlyAvgAttendance}人`,
+            attendanceRate: `${yearlyAttendanceRate}%`,
+            avgWorkTime: `${yearlyAvgWorkHours}時間${yearlyAvgWorkMinutes}分`
+          })
+        }
       } catch (error) {
         console.error("班データの取得に失敗しました:", error)
       }
     }
 
     fetchTeamData()
-  }, [])
+  }, [selectedYear, selectedMonth])
 
   // ダミーデータ - 班情報
   const teamData = {
@@ -345,19 +507,19 @@ export function TeamDashboardContent() {
                 <div className="flex flex-col items-center p-3 bg-muted rounded-md">
                   <span className="text-xs text-muted-foreground mb-1">平均出勤人数</span>
                   <span className="text-lg font-semibold">
-                    {timeRange === "month" ? teamData.monthlyAvgAttendance : teamData.yearlyAvgAttendance}
+                    {timeRange === "month" ? monthlyStats.avgAttendance : yearlyStats.avgAttendance}
                   </span>
                 </div>
                 <div className="flex flex-col items-center p-3 bg-muted rounded-md">
                   <span className="text-xs text-muted-foreground mb-1">出勤率</span>
                   <span className="text-lg font-semibold">
-                    {timeRange === "month" ? teamData.monthlyAttendanceRate : teamData.yearlyAttendanceRate}
+                    {timeRange === "month" ? monthlyStats.attendanceRate : yearlyStats.attendanceRate}
                   </span>
                 </div>
                 <div className="flex flex-col items-center p-3 bg-muted rounded-md">
                   <span className="text-xs text-muted-foreground mb-1">平均勤務時間</span>
                   <span className="text-lg font-semibold">
-                    {timeRange === "month" ? teamData.monthlyAvgWorkTime : teamData.yearlyAvgWorkTime}
+                    {timeRange === "month" ? monthlyStats.avgWorkTime : yearlyStats.avgWorkTime}
                   </span>
                 </div>
               </div>
