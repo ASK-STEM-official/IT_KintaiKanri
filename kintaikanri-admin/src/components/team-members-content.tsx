@@ -34,8 +34,10 @@ type SummaryData = {
   updatedAt: Date
 }
 
-export function TeamMembersContent() {
+export function TeamMembersContent({ teamId }: { teamId: string }) {
   const [timeRange, setTimeRange] = useState("month")
+  const [selectedTeam, setSelectedTeam] = useState<string>(teamId)
+  const [teams, setTeams] = useState<{ id: string, name: string }[]>([])
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
@@ -129,9 +131,19 @@ export function TeamMembersContent() {
   useEffect(() => {
     const fetchTeamMembers = async () => {
       try {
-        // ユーザー情報を取得
+        // 班一覧を取得
+        const teamsRef = collection(db, "teams")
+        const teamsSnapshot = await getDocs(teamsRef)
+        const teamsList = teamsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name
+        }))
+        setTeams(teamsList)
+
+        // 選択された班のユーザー情報を取得
         const usersRef = collection(db, "users")
-        const usersSnapshot = await getDocs(usersRef)
+        const usersQuery = query(usersRef, where("teamId", "==", selectedTeam))
+        const usersSnapshot = await getDocs(usersQuery)
         
         // 出勤ログを取得
         const logsRef = collection(db, "attendance_logs")
@@ -147,6 +159,7 @@ export function TeamMembersContent() {
 
         const logsQuery = query(
           logsRef,
+          where("teamId", "==", selectedTeam),
           where("timestamp", ">=", Timestamp.fromDate(startDate)),
           where("timestamp", "<=", Timestamp.fromDate(endDate))
         )
@@ -280,7 +293,7 @@ export function TeamMembersContent() {
     }
 
     fetchTeamMembers()
-  }, [selectedMonth, selectedYear, timeRange])
+  }, [selectedMonth, selectedYear, timeRange, selectedTeam])
 
   const teamMembers = timeRange === "month" ? monthlyTeamMembers[selectedMonth] || [] : yearlyTeamMembers[selectedYear] || []
 
@@ -290,7 +303,9 @@ export function TeamMembersContent() {
       <Card className="shadow-sm flex-1 flex flex-col overflow-hidden">
         <CardHeader className="py-2 px-4 bg-white z-10 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-medium">班員一覧</CardTitle>
+            <CardTitle className="text-base font-medium">
+              {teams.find(t => t.id === selectedTeam)?.name || "班"}の班員一覧
+            </CardTitle>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <Tabs defaultValue="month" value={timeRange} onValueChange={setTimeRange} className="w-auto">

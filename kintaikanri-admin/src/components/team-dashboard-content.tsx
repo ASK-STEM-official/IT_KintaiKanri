@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { db } from "@/lib/firebase/config"
 import { collection, query, where, getDocs, Timestamp } from "firebase/firestore"
 
-export function TeamDashboardContent() {
+export function TeamDashboardContent({ teamId }: { teamId: string }) {
   const [timeRange, setTimeRange] = useState("month")
   const [workingMembers, setWorkingMembers] = useState(0)
   const [totalMembers, setTotalMembers] = useState(0)
@@ -25,6 +25,8 @@ export function TeamDashboardContent() {
     attendanceRate: "0%",
     avgWorkTime: "0時間0分"
   })
+  const [selectedTeam, setSelectedTeam] = useState<string>(teamId)
+  const [teams, setTeams] = useState<{ id: string, name: string }[]>([])
 
   // 年/月/日の選択状態
   const [selectedYear, setSelectedYear] = useState(() => {
@@ -98,9 +100,26 @@ export function TeamDashboardContent() {
   useEffect(() => {
     const fetchTeamData = async () => {
       try {
-        // 全メンバー数を取得
+        // 班一覧を取得
+        const teamsRef = collection(db, "teams")
+        const teamsSnapshot = await getDocs(teamsRef)
+        const teamsList = teamsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name
+        }))
+        setTeams(teamsList)
+
+        // 班が選択されていない場合は最初の班を選択
+        if (!selectedTeam && teamsList.length > 0) {
+          setSelectedTeam(teamsList[0].id)
+        }
+
+        if (!selectedTeam) return
+
+        // 選択された班のメンバー数を取得
         const usersRef = collection(db, "users")
-        const usersSnapshot = await getDocs(usersRef)
+        const usersQuery = query(usersRef, where("teamId", "==", selectedTeam))
+        const usersSnapshot = await getDocs(usersQuery)
         const totalCount = usersSnapshot.size
         setTotalMembers(totalCount)
 
@@ -116,6 +135,7 @@ export function TeamDashboardContent() {
         const logsRef = collection(db, "attendance_logs")
         const logsQuery = query(
           logsRef,
+          where("teamId", "==", selectedTeam),
           where("timestamp", ">=", Timestamp.fromDate(todayStart)),
           where("timestamp", "<", Timestamp.fromDate(todayEnd))
         )
@@ -179,6 +199,7 @@ export function TeamDashboardContent() {
         const currentTimestamp = Timestamp.now()
         const workingLogsQuery = query(
           logsRef,
+          where("teamId", "==", selectedTeam),
           where("timestamp", ">=", new Timestamp(currentTimestamp.seconds - 24 * 60 * 60, 0))
         )
         const workingLogsSnapshot = await getDocs(workingLogsQuery)
@@ -229,6 +250,7 @@ export function TeamDashboardContent() {
           
           const monthlyLogsQuery = query(
             logsRef,
+            where("teamId", "==", selectedTeam),
             where("timestamp", ">=", Timestamp.fromDate(startOfMonth)),
             where("timestamp", "<=", Timestamp.fromDate(endOfMonth))
           )
@@ -306,6 +328,7 @@ export function TeamDashboardContent() {
           
           const yearlyLogsQuery = query(
             logsRef,
+            where("teamId", "==", selectedTeam),
             where("timestamp", ">=", Timestamp.fromDate(startOfYear)),
             where("timestamp", "<=", Timestamp.fromDate(endOfYear))
           )
@@ -370,6 +393,7 @@ export function TeamDashboardContent() {
 
         const dailyLogsQuery = query(
           logsRef,
+          where("teamId", "==", selectedTeam),
           where("timestamp", ">=", Timestamp.fromDate(selectedDateStart)),
           where("timestamp", "<", Timestamp.fromDate(selectedDateEnd))
         )
@@ -426,7 +450,7 @@ export function TeamDashboardContent() {
     }
 
     fetchTeamData()
-  }, [selectedYear, selectedMonth, selectedDay])
+  }, [selectedYear, selectedMonth, selectedDay, selectedTeam])
 
   // ダミーデータ - 班情報
   const teamData = {
@@ -520,7 +544,9 @@ export function TeamDashboardContent() {
         <Card className="shadow-sm">
           <CardHeader className="py-2 px-4">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-medium">開発班</CardTitle>
+              <CardTitle className="text-base font-medium">
+                {teams.find(t => t.id === selectedTeam)?.name || "班"}の概要
+              </CardTitle>
               <UsersIcon className="w-4 h-4 text-muted-foreground" />
             </div>
           </CardHeader>

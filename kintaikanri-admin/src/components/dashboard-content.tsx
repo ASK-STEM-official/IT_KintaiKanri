@@ -192,7 +192,7 @@ export function DashboardContent() {
           const date = timestamp.toDate()
           const dateKey = `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`
           workingDays.add(dateKey)
-        })
+  })
 
         // 月ごとの統計を計算
         const [year, month] = selectedMonth.split("-").map(Number)
@@ -227,13 +227,13 @@ export function DashboardContent() {
             .map(log => log.date)
         ).size
 
-        // 平均勤務時間を計算
+    // 平均勤務時間を計算
         const monthWorkTimes = monthLogs
           .filter(log => log.workTime !== "-")
           .map(log => {
-            const [hours, minutes] = log.workTime.split(":").map(Number)
+      const [hours, minutes] = log.workTime.split(":").map(Number)
             return hours * 60 + minutes
-          })
+    })
         
         const avgWorkMinutes = monthWorkTimes.length > 0
           ? Math.round(monthWorkTimes.reduce((sum, minutes) => sum + minutes, 0) / monthWorkTimes.length)
@@ -267,7 +267,7 @@ export function DashboardContent() {
         const avgYearlyWorkHours = Math.floor(avgYearlyWorkMinutes / 60)
         const avgYearlyWorkMins = avgYearlyWorkMinutes % 60
 
-        const yearlyStats = {
+  const yearlyStats = {
           count: yearAttendanceDays,
           avgTime: avgYearlyWorkMinutes > 0
             ? `${avgYearlyWorkHours}時間${String(avgYearlyWorkMins).padStart(2, "0")}分`
@@ -275,7 +275,7 @@ export function DashboardContent() {
           rate: yearWorkingDays > 0
             ? `${Math.round((yearAttendanceDays / yearWorkingDays) * 100)}%`
             : "0%"
-        }
+  }
 
         // 最新の出勤記録を取得
         const latestEntry = sortedLogs
