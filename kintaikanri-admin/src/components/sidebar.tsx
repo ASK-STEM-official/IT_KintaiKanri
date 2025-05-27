@@ -120,7 +120,7 @@ export function Sidebar() {
               <SidebarMenuItem key={team.id}>
                 <SidebarMenuButton
                   onClick={() => toggleSubMenu(team.id)}
-                  isActive={pathname.startsWith(`/teams/${team.id}`)}
+                  isActive={pathname.startsWith(`/dashboard/team/${team.id}`)}
                 >
                   <Users className="h-5 w-5" />
                   <span>{team.name}</span>
@@ -135,17 +135,17 @@ export function Sidebar() {
                     <SidebarMenuSubItem>
                       <SidebarMenuSubButton
                         asChild
-                        isActive={pathname === `/teams/${team.id}`}
+                        isActive={pathname === `/dashboard/team/${team.id}`}
                       >
-                        <Link href={`/teams/${team.id}`}>ダッシュボード</Link>
+                        <Link href={`/dashboard/team/${team.id}`}>ダッシュボード</Link>
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
                       <SidebarMenuSubButton
                         asChild
-                        isActive={pathname === `/teams/${team.id}/members`}
+                        isActive={pathname === `/dashboard/team/${team.id}/members`}
                       >
-                        <Link href={`/teams/${team.id}/members`}>班員一覧</Link>
+                        <Link href={`/dashboard/team/${team.id}/members`}>班員一覧</Link>
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
                   </SidebarMenuSub>
