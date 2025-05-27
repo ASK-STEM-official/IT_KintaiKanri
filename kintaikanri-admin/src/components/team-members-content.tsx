@@ -187,7 +187,7 @@ export function TeamMembersContent({ teamId }: TeamMembersContentProps) {
 
         const logsQuery = query(
           logsRef,
-          where("userId", "in", memberIds),
+          where("uid", "in", memberIds),
           where("timestamp", ">=", Timestamp.fromDate(startDate)),
           where("timestamp", "<=", Timestamp.fromDate(endDate))
         )
@@ -197,13 +197,13 @@ export function TeamMembersContent({ teamId }: TeamMembersContentProps) {
         const userLogs = new Map<string, { entries: Timestamp[], exits: Timestamp[] }>()
         logsSnapshot.docs.forEach(doc => {
           const log = doc.data()
-          if (!userLogs.has(log.userId)) {
-            userLogs.set(log.userId, { entries: [], exits: [] })
+          if (!userLogs.has(log.uid)) {
+            userLogs.set(log.uid, { entries: [], exits: [] })
           }
           if (log.type === "entry") {
-            userLogs.get(log.userId)?.entries.push(log.timestamp)
+            userLogs.get(log.uid)?.entries.push(log.timestamp)
           } else {
-            userLogs.get(log.userId)?.exits.push(log.timestamp)
+            userLogs.get(log.uid)?.exits.push(log.timestamp)
           }
         })
 
@@ -216,7 +216,7 @@ export function TeamMembersContent({ teamId }: TeamMembersContentProps) {
           // 累計出勤日数（attendance_logsから該当uidのentry数をカウント）
           const attendanceLogsQuery = query(
             collection(db, "attendance_logs"),
-            where("userId", "==", userDoc.id),
+            where("uid", "==", userDoc.id),
             where("type", "==", "entry")
           )
           const attendanceLogsSnapshot = await getDocs(attendanceLogsQuery)
@@ -286,16 +286,24 @@ export function TeamMembersContent({ teamId }: TeamMembersContentProps) {
           const now = Timestamp.now()
           const lastEntry = logs.entries[logs.entries.length - 1]
           const lastExit = logs.exits[logs.exits.length - 1]
-          let status = "未出勤"
-          if (lastEntry && (!lastExit || lastEntry > lastExit)) {
-            status = "勤務中"
-          } else if (lastExit && lastExit > lastEntry) {
-            status = "退勤済"
+          let status: "出勤中" | "退勤" | "未出勤" = "未出勤"
+
+          if (lastEntry) {
+            if (!lastExit || lastEntry > lastExit) {
+              status = "出勤中"
+            } else {
+              status = "退勤"
+            }
           }
 
           return {
+            id: userDoc.id,
             name: `${data.lastname} ${data.firstname}`,
             status,
+            lastAttendance: lastEntry ? {
+              type: lastExit && lastEntry > lastExit ? "entry" : "exit",
+              timestamp: lastEntry.toDate()
+            } : undefined,
             totalAttendanceDays: attendanceDays,
             avgWorkTime,
             attendanceRate,
