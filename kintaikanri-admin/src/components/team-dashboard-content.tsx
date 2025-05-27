@@ -777,44 +777,6 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
           </div>
         </CardContent>
       </Card>
-
-      <Card className="shadow-sm flex-1 flex flex-col overflow-hidden">
-        <CardHeader className="py-2 px-4 bg-white z-10 flex-shrink-0">
-          <CardTitle className="text-base font-medium">今日の出退勤ログ</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 flex-1 overflow-hidden">
-          <ScrollArea className="h-[400px]">
-            <div className="space-y-4">
-              {attendanceLogs.length === 0 ? (
-                <p className="text-center text-muted-foreground">出退勤ログがありません</p>
-              ) : (
-                attendanceLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="flex items-center justify-between rounded-lg border p-4"
-                  >
-                    <div>
-                      <p className="font-medium">{log.userName}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {log.timestamp.toLocaleString()}
-                      </p>
-                    </div>
-                    <div
-                      className={`rounded-full px-3 py-1 text-sm ${
-                        log.type === "entry"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {log.type === "entry" ? "出勤" : "退勤"}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </ScrollArea>
-        </CardContent>
-      </Card>
     </div>
   )
 }

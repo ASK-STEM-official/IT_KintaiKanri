@@ -442,48 +442,6 @@ export function TeamMembersContent({ teamId }: TeamMembersContentProps) {
           </div>
         </CardContent>
       </Card>
-
-      <Card className="mt-4">
-        <CardHeader>
-          <CardTitle>班員の出退勤状況</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-[400px]">
-            <div className="space-y-4">
-              {members.length === 0 ? (
-                <p className="text-center text-muted-foreground">班員が登録されていません</p>
-              ) : (
-                members.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between rounded-lg border p-4"
-                  >
-                    <div>
-                      <p className="font-medium">{member.name}</p>
-                      {member.lastAttendance && (
-                        <p className="text-sm text-muted-foreground">
-                          最終更新: {member.lastAttendance.timestamp.toLocaleString()}
-                        </p>
-                      )}
-                    </div>
-                    <div
-                      className={`rounded-full px-3 py-1 text-sm ${
-                        member.status === "出勤中"
-                          ? "bg-green-100 text-green-800"
-                          : member.status === "退勤"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {member.status}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </ScrollArea>
-        </CardContent>
-      </Card>
     </div>
   )
 }
