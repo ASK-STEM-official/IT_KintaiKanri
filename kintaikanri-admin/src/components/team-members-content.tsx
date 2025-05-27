@@ -148,6 +148,7 @@ export function TeamMembersContent({ teamId }: TeamMembersContentProps) {
   useEffect(() => {
     const fetchTeamMembers = async () => {
       try {
+        setIsLoading(true)
         // 班一覧を取得
         const teamsRef = collection(db, "teams")
         const teamsSnapshot = await getDocs(teamsRef)
@@ -162,6 +163,16 @@ export function TeamMembersContent({ teamId }: TeamMembersContentProps) {
         const usersQuery = query(usersRef, where("teamId", "==", selectedTeam))
         const usersSnapshot = await getDocs(usersQuery)
         
+        // メンバーIDのリストを取得
+        const memberIds = usersSnapshot.docs.map(doc => doc.id)
+        if (memberIds.length === 0) {
+          setMonthlyTeamMembers({})
+          setYearlyTeamMembers({})
+          setMembers([])
+          setIsLoading(false)
+          return
+        }
+
         // 出勤ログを取得
         const logsRef = collection(db, "attendance_logs")
         const [startDate, endDate] = timeRange === "month" 
@@ -176,7 +187,7 @@ export function TeamMembersContent({ teamId }: TeamMembersContentProps) {
 
         const logsQuery = query(
           logsRef,
-          where("teamId", "==", selectedTeam),
+          where("userId", "in", memberIds),
           where("timestamp", ">=", Timestamp.fromDate(startDate)),
           where("timestamp", "<=", Timestamp.fromDate(endDate))
         )
@@ -186,13 +197,13 @@ export function TeamMembersContent({ teamId }: TeamMembersContentProps) {
         const userLogs = new Map<string, { entries: Timestamp[], exits: Timestamp[] }>()
         logsSnapshot.docs.forEach(doc => {
           const log = doc.data()
-          if (!userLogs.has(log.uid)) {
-            userLogs.set(log.uid, { entries: [], exits: [] })
+          if (!userLogs.has(log.userId)) {
+            userLogs.set(log.userId, { entries: [], exits: [] })
           }
           if (log.type === "entry") {
-            userLogs.get(log.uid)?.entries.push(log.timestamp)
+            userLogs.get(log.userId)?.entries.push(log.timestamp)
           } else {
-            userLogs.get(log.uid)?.exits.push(log.timestamp)
+            userLogs.get(log.userId)?.exits.push(log.timestamp)
           }
         })
 
@@ -205,7 +216,7 @@ export function TeamMembersContent({ teamId }: TeamMembersContentProps) {
           // 累計出勤日数（attendance_logsから該当uidのentry数をカウント）
           const attendanceLogsQuery = query(
             collection(db, "attendance_logs"),
-            where("uid", "==", userDoc.id),
+            where("userId", "==", userDoc.id),
             where("type", "==", "entry")
           )
           const attendanceLogsSnapshot = await getDocs(attendanceLogsQuery)
@@ -295,29 +306,26 @@ export function TeamMembersContent({ teamId }: TeamMembersContentProps) {
 
         // 月次データを更新
         const monthlyData = { ...monthlyTeamMembers }
-        const monthlyMembers = await Promise.all(members)
-        monthlyData[selectedMonth] = monthlyMembers
+        monthlyData[selectedMonth] = members
         setMonthlyTeamMembers(monthlyData)
 
         // 年次データを更新
         const yearlyData = { ...yearlyTeamMembers }
-        const yearlyMembers = await Promise.all(members)
-        yearlyData[selectedYear] = yearlyMembers
+        yearlyData[selectedYear] = members
         setYearlyTeamMembers(yearlyData)
 
         // メンバーの出退勤状況を更新
-        const updatedMembers: Member[] = []
-        for (const member of monthlyMembers) {
-          updatedMembers.push({
-            id: member.name,
-            name: member.name,
-            status: member.status as "出勤中" | "退勤" | "未出勤"
-          })
-        }
+        const updatedMembers: Member[] = members.map(member => ({
+          id: member.name,
+          name: member.name,
+          status: member.status as "出勤中" | "退勤" | "未出勤"
+        }))
 
         setMembers(updatedMembers)
       } catch (error) {
         console.error("班員データの取得に失敗しました:", error)
+      } finally {
+        setIsLoading(false)
       }
     }
 

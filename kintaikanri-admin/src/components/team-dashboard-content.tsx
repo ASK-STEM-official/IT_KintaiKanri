@@ -112,6 +112,7 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
   useEffect(() => {
     const fetchTeamData = async () => {
       try {
+        setIsLoading(true)
         // 班一覧を取得
         const teamsRef = collection(db, "teams")
         const teamsSnapshot = await getDocs(teamsRef)
@@ -135,6 +136,17 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
         const totalCount = usersSnapshot.size
         setTotalMembers(totalCount)
 
+        // メンバーIDのリストを取得
+        const memberIds = usersSnapshot.docs.map(doc => doc.id)
+        if (memberIds.length === 0) {
+          setWorkingMembers(0)
+          setTodayAttendanceRate("0%")
+          setTodayAvgWorkTime("0時間0分")
+          setSelectedDateAttendance([])
+          setIsLoading(false)
+          return
+        }
+
         // 今日の日付を取得（日本時間）
         const currentDate = new Date()
         const jstNow = new Date(currentDate.getTime() + (9 * 60 * 60 * 1000))
@@ -147,7 +159,7 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
         const logsRef = collection(db, "attendance_logs")
         const logsQuery = query(
           logsRef,
-          where("teamId", "==", selectedTeam),
+          where("userId", "in", memberIds),
           where("timestamp", ">=", Timestamp.fromDate(todayStart)),
           where("timestamp", "<", Timestamp.fromDate(todayEnd))
         )
@@ -157,21 +169,21 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
         const userLogs = new Map<string, { entries: Timestamp[], exits: Timestamp[] }>()
         logsSnapshot.docs.forEach(doc => {
           const log = doc.data()
-          if (!userLogs.has(log.uid)) {
-            userLogs.set(log.uid, { entries: [], exits: [] })
+          if (!userLogs.has(log.userId)) {
+            userLogs.set(log.userId, { entries: [], exits: [] })
           }
           if (log.type === "entry") {
-            userLogs.get(log.uid)?.entries.push(log.timestamp)
+            userLogs.get(log.userId)?.entries.push(log.timestamp)
           } else {
-            userLogs.get(log.uid)?.exits.push(log.timestamp)
+            userLogs.get(log.userId)?.exits.push(log.timestamp)
           }
         })
 
         // 出勤したユーザーのユニーク数をカウント
         const attendedUsers = new Set<string>()
-        userLogs.forEach((logs, uid) => {
+        userLogs.forEach((logs, userId) => {
           if (logs.entries.length > 0) {
-            attendedUsers.add(uid)
+            attendedUsers.add(userId)
           }
         })
 
@@ -211,7 +223,7 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
         const currentTimestamp = Timestamp.now()
         const workingLogsQuery = query(
           logsRef,
-          where("teamId", "==", selectedTeam),
+          where("userId", "in", memberIds),
           where("timestamp", ">=", new Timestamp(currentTimestamp.seconds - 24 * 60 * 60, 0))
         )
         const workingLogsSnapshot = await getDocs(workingLogsQuery)
@@ -220,7 +232,7 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
         const userStatus = new Map<string, { lastEntry?: Timestamp, lastExit?: Timestamp }>()
         workingLogsSnapshot.docs.forEach(doc => {
           const log = doc.data()
-          const userLogs = userStatus.get(log.uid) || { lastEntry: undefined, lastExit: undefined }
+          const userLogs = userStatus.get(log.userId) || { lastEntry: undefined, lastExit: undefined }
           
           if (log.type === "entry") {
             if (!userLogs.lastEntry || log.timestamp > userLogs.lastEntry) {
@@ -231,7 +243,7 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
               userLogs.lastExit = log.timestamp
             }
           }
-          userStatus.set(log.uid, userLogs)
+          userStatus.set(log.userId, userLogs)
         })
 
         // 勤務中の人数をカウント
@@ -262,23 +274,23 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
           
           const monthlyLogsQuery = query(
             logsRef,
-            where("teamId", "==", selectedTeam),
+            where("userId", "in", memberIds),
             where("timestamp", ">=", Timestamp.fromDate(startOfMonth)),
             where("timestamp", "<=", Timestamp.fromDate(endOfMonth))
           )
           const monthlyLogsSnapshot = await getDocs(monthlyLogsQuery)
 
           // 月次の統計を計算
-          const monthlyUserLogs = new Map<string, { uid: string, entries: Timestamp[], exits: Timestamp[] }>()
+          const monthlyUserLogs = new Map<string, { userId: string, entries: Timestamp[], exits: Timestamp[] }>()
           monthlyLogsSnapshot.docs.forEach(doc => {
             const log = doc.data()
-            if (!monthlyUserLogs.has(log.uid)) {
-              monthlyUserLogs.set(log.uid, { uid: log.uid, entries: [], exits: [] })
+            if (!monthlyUserLogs.has(log.userId)) {
+              monthlyUserLogs.set(log.userId, { userId: log.userId, entries: [], exits: [] })
             }
             if (log.type === "entry") {
-              monthlyUserLogs.get(log.uid)?.entries.push(log.timestamp)
+              monthlyUserLogs.get(log.userId)?.entries.push(log.timestamp)
             } else {
-              monthlyUserLogs.get(log.uid)?.exits.push(log.timestamp)
+              monthlyUserLogs.get(log.userId)?.exits.push(log.timestamp)
             }
           })
 
@@ -289,7 +301,7 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
 
           monthlyUserLogs.forEach((logs) => {
             if (logs.entries.length > 0) {
-              monthlyAttendedUsers.add(logs.uid)
+              monthlyAttendedUsers.add(logs.userId)
             }
             logs.entries.forEach((entry, index) => {
               const exit = logs.exits[index]
@@ -340,23 +352,23 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
           
           const yearlyLogsQuery = query(
             logsRef,
-            where("teamId", "==", selectedTeam),
+            where("userId", "in", memberIds),
             where("timestamp", ">=", Timestamp.fromDate(startOfYear)),
             where("timestamp", "<=", Timestamp.fromDate(endOfYear))
           )
           const yearlyLogsSnapshot = await getDocs(yearlyLogsQuery)
 
           // 年次の統計を計算
-          const yearlyUserLogs = new Map<string, { uid: string, entries: Timestamp[], exits: Timestamp[] }>()
+          const yearlyUserLogs = new Map<string, { userId: string, entries: Timestamp[], exits: Timestamp[] }>()
           yearlyLogsSnapshot.docs.forEach(doc => {
             const log = doc.data()
-            if (!yearlyUserLogs.has(log.uid)) {
-              yearlyUserLogs.set(log.uid, { uid: log.uid, entries: [], exits: [] })
+            if (!yearlyUserLogs.has(log.userId)) {
+              yearlyUserLogs.set(log.userId, { userId: log.userId, entries: [], exits: [] })
             }
             if (log.type === "entry") {
-              yearlyUserLogs.get(log.uid)?.entries.push(log.timestamp)
+              yearlyUserLogs.get(log.userId)?.entries.push(log.timestamp)
             } else {
-              yearlyUserLogs.get(log.uid)?.exits.push(log.timestamp)
+              yearlyUserLogs.get(log.userId)?.exits.push(log.timestamp)
             }
           })
 
@@ -367,7 +379,7 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
 
           yearlyUserLogs.forEach((logs) => {
             if (logs.entries.length > 0) {
-              yearlyAttendedUsers.add(logs.uid)
+              yearlyAttendedUsers.add(logs.userId)
             }
             logs.entries.forEach((entry, index) => {
               const exit = logs.exits[index]
@@ -405,7 +417,7 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
 
         const dailyLogsQuery = query(
           logsRef,
-          where("teamId", "==", selectedTeam),
+          where("userId", "in", memberIds),
           where("timestamp", ">=", Timestamp.fromDate(selectedDateStart)),
           where("timestamp", "<", Timestamp.fromDate(selectedDateEnd))
         )
@@ -415,17 +427,17 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
         const dailyUserLogs = new Map<string, { name: string, entries: Timestamp[], exits: Timestamp[] }>()
         dailyLogsSnapshot.docs.forEach(doc => {
           const log = doc.data()
-          if (!dailyUserLogs.has(log.uid)) {
+          if (!dailyUserLogs.has(log.userId)) {
             // ユーザー情報を取得
-            const userDoc = usersSnapshot.docs.find(d => d.id === log.uid)
+            const userDoc = usersSnapshot.docs.find(d => d.id === log.userId)
             const userData = userDoc?.data()
             const name = userData ? `${userData.lastname} ${userData.firstname}` : "不明"
-            dailyUserLogs.set(log.uid, { name, entries: [], exits: [] })
+            dailyUserLogs.set(log.userId, { name, entries: [], exits: [] })
           }
           if (log.type === "entry") {
-            dailyUserLogs.get(log.uid)?.entries.push(log.timestamp)
+            dailyUserLogs.get(log.userId)?.entries.push(log.timestamp)
           } else {
-            dailyUserLogs.get(log.uid)?.exits.push(log.timestamp)
+            dailyUserLogs.get(log.userId)?.exits.push(log.timestamp)
           }
         })
 
@@ -456,62 +468,10 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
         attendanceHistory.sort((a, b) => a.name.localeCompare(b.name, 'ja'))
         setSelectedDateAttendance(attendanceHistory)
 
-        // 出退勤ログの取得
-        const fetchAttendanceLogs = async () => {
-          try {
-            // 班のメンバーを取得
-            const teamDoc = await getDoc(doc(db, "teams", teamId))
-            if (!teamDoc.exists()) return
-
-            const teamData = teamDoc.data()
-            const memberIds = teamData.memberIds || []
-
-            // 今日の出退勤ログを取得
-            const today = new Date()
-            today.setHours(0, 0, 0, 0)
-            const tomorrow = new Date(today)
-            tomorrow.setDate(tomorrow.getDate() + 1)
-
-            const logsRef = collection(db, "attendance_logs")
-            const q = query(
-              logsRef,
-              where("userId", "in", memberIds),
-              where("timestamp", ">=", today),
-              where("timestamp", "<", tomorrow)
-            )
-
-            const logsSnapshot = await getDocs(q)
-            const logs: AttendanceLog[] = []
-
-            // ユーザー情報を取得してログに追加
-            for (const logDoc of logsSnapshot.docs) {
-              const logData = logDoc.data()
-              const userDoc = await getDoc(doc(db, "users", logData.userId))
-              const userName = userDoc.exists() ? userDoc.data().name : "不明"
-
-              logs.push({
-                id: logDoc.id,
-                userId: logData.userId,
-                type: logData.type,
-                timestamp: logData.timestamp.toDate(),
-                userName
-              })
-            }
-
-            // タイムスタンプでソート
-            logs.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-            setAttendanceLogs(logs)
-          } catch (error) {
-            console.error("出退勤ログの取得に失敗しました:", error)
-          } finally {
-            setIsLoading(false)
-          }
-        }
-
-        fetchAttendanceLogs()
-
       } catch (error) {
         console.error("班データの取得に失敗しました:", error)
+      } finally {
+        setIsLoading(false)
       }
     }
 
