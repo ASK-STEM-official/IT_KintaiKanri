@@ -585,7 +585,7 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
   return (
     <div className="h-full flex flex-col gap-3 overflow-hidden">
       {/* 班情報と統計情報を横並びに */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3">
         {/* 班別概要 - 日次情報 */}
         <Card className="shadow-sm">
           <CardHeader className="py-2 px-4">
@@ -613,56 +613,6 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
                 <span>{todayAvgWorkTime}</span>
               </div>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* 班統計情報 - 月次/年次切り替え */}
-        <Card className="shadow-sm">
-          <CardHeader className="py-2 px-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-medium">統計情報</CardTitle>
-              <BarChart3Icon className="w-4 h-4 text-muted-foreground" />
-            </div>
-          </CardHeader>
-          <CardContent className="py-2 px-4">
-            <Tabs defaultValue="month" value={timeRange} onValueChange={setTimeRange} className="w-full">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium">表示期間:</span>
-                <TabsList className="h-7 p-1">
-                  <TabsTrigger value="month" className="text-sm px-3 py-0 h-5">
-                    月次
-                  </TabsTrigger>
-                  <TabsTrigger value="year" className="text-sm px-3 py-0 h-5">
-                    年次
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="flex flex-col items-center p-3 bg-muted rounded-md">
-                  <span className="text-xs text-muted-foreground mb-1">平均出勤人数</span>
-                  <span className="text-lg font-semibold">
-                    {timeRange === "month" ? monthlyStats.avgAttendance : yearlyStats.avgAttendance}
-                  </span>
-                </div>
-                <div className="flex flex-col items-center p-3 bg-muted rounded-md">
-                  <span className="text-xs text-muted-foreground mb-1">出勤率</span>
-                  <span className="text-lg font-semibold">
-                    {timeRange === "month" ? monthlyStats.attendanceRate : yearlyStats.attendanceRate}
-                  </span>
-                </div>
-                <div className="flex flex-col items-center p-3 bg-muted rounded-md">
-                  <span className="text-xs text-muted-foreground mb-1">平均勤務時間</span>
-                  <span className="text-lg font-semibold">
-                    {timeRange === "month" ? monthlyStats.avgWorkTime : yearlyStats.avgWorkTime}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-3 text-xs text-right text-muted-foreground">
-                {timeRange === "month" ? "※ 今月の統計情報" : "※ 今年の統計情報"}
-              </div>
-            </Tabs>
           </CardContent>
         </Card>
       </div>
