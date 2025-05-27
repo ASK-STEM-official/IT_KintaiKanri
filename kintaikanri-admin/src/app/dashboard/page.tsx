@@ -1,10 +1,10 @@
-import { DashboardLayout } from "@/components/dashboard-layout"
+import { AuthGuard } from "@/lib/auth-guard"
 import { DashboardContent } from "@/components/dashboard-content"
 
 export default function DashboardPage() {
   return (
-    <DashboardLayout>
+    <AuthGuard requiredRole="member">
       <DashboardContent />
-    </DashboardLayout>
+    </AuthGuard>
   )
 }
