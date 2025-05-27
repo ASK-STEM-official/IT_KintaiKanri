@@ -7,7 +7,16 @@ import { UsersIcon, BarChart3Icon } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { db } from "@/lib/firebase/config"
-import { collection, query, where, getDocs, Timestamp } from "firebase/firestore"
+import { collection, query, where, getDocs, Timestamp, doc, getDoc } from "firebase/firestore"
+import { ScrollArea } from "@/components/ui/scroll-area"
+
+interface AttendanceLog {
+  id: string
+  userId: string
+  type: "entry" | "exit"
+  timestamp: Date
+  userName: string
+}
 
 export function TeamDashboardContent({ teamId }: { teamId: string }) {
   const [timeRange, setTimeRange] = useState("month")
@@ -95,6 +104,9 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
     exitTime: string
     workTime: string
   }[]>([])
+
+  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   // Firestoreからデータを取得
   useEffect(() => {
@@ -444,6 +456,60 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
         attendanceHistory.sort((a, b) => a.name.localeCompare(b.name, 'ja'))
         setSelectedDateAttendance(attendanceHistory)
 
+        // 出退勤ログの取得
+        const fetchAttendanceLogs = async () => {
+          try {
+            // 班のメンバーを取得
+            const teamDoc = await getDoc(doc(db, "teams", teamId))
+            if (!teamDoc.exists()) return
+
+            const teamData = teamDoc.data()
+            const memberIds = teamData.memberIds || []
+
+            // 今日の出退勤ログを取得
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+            const tomorrow = new Date(today)
+            tomorrow.setDate(tomorrow.getDate() + 1)
+
+            const logsRef = collection(db, "attendance_logs")
+            const q = query(
+              logsRef,
+              where("userId", "in", memberIds),
+              where("timestamp", ">=", today),
+              where("timestamp", "<", tomorrow)
+            )
+
+            const logsSnapshot = await getDocs(q)
+            const logs: AttendanceLog[] = []
+
+            // ユーザー情報を取得してログに追加
+            for (const logDoc of logsSnapshot.docs) {
+              const logData = logDoc.data()
+              const userDoc = await getDoc(doc(db, "users", logData.userId))
+              const userName = userDoc.exists() ? userDoc.data().name : "不明"
+
+              logs.push({
+                id: logDoc.id,
+                userId: logData.userId,
+                type: logData.type,
+                timestamp: logData.timestamp.toDate(),
+                userName
+              })
+            }
+
+            // タイムスタンプでソート
+            logs.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+            setAttendanceLogs(logs)
+          } catch (error) {
+            console.error("出退勤ログの取得に失敗しました:", error)
+          } finally {
+            setIsLoading(false)
+          }
+        }
+
+        fetchAttendanceLogs()
+
       } catch (error) {
         console.error("班データの取得に失敗しました:", error)
       }
@@ -535,6 +601,10 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
 
   // 表示用の日付フォーマット
   const displayDate = `${selectedYear}年${Number.parseInt(selectedMonth)}月${Number.parseInt(selectedDay)}日`
+
+  if (isLoading) {
+    return <div>読み込み中...</div>
+  }
 
   return (
     <div className="h-full flex flex-col gap-3 overflow-hidden">
@@ -705,6 +775,44 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
               </TableBody>
             </Table>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-sm flex-1 flex flex-col overflow-hidden">
+        <CardHeader className="py-2 px-4 bg-white z-10 flex-shrink-0">
+          <CardTitle className="text-base font-medium">今日の出退勤ログ</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0 flex-1 overflow-hidden">
+          <ScrollArea className="h-[400px]">
+            <div className="space-y-4">
+              {attendanceLogs.length === 0 ? (
+                <p className="text-center text-muted-foreground">出退勤ログがありません</p>
+              ) : (
+                attendanceLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="flex items-center justify-between rounded-lg border p-4"
+                  >
+                    <div>
+                      <p className="font-medium">{log.userName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {log.timestamp.toLocaleString()}
+                      </p>
+                    </div>
+                    <div
+                      className={`rounded-full px-3 py-1 text-sm ${
+                        log.type === "entry"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {log.type === "entry" ? "出勤" : "退勤"}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </ScrollArea>
         </CardContent>
       </Card>
     </div>

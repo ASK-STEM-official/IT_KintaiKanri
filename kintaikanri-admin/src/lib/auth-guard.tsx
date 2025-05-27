@@ -51,12 +51,11 @@ export function AuthGuard({ children, requiredRole, teamId }: AuthGuardProps) {
           }
         }
 
-        // 班のメンバー権限を確認
-        if (teamId && requiredRole === "member") {
-          if (userData.teamId !== teamId) {
-            router.push("/dashboard")
-            return
-          }
+        // 一般部員の場合は常にアクセス可能
+        if (requiredRole === "member") {
+          setHasAccess(true)
+          setIsLoading(false)
+          return
         }
 
         setHasAccess(true)

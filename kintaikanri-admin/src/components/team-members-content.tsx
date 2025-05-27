@@ -10,6 +10,7 @@ import { db } from "@/lib/firebase/config"
 import { collection, query, where, getDocs, Timestamp, doc, getDoc, DocumentData, QueryDocumentSnapshot } from "firebase/firestore"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 type TeamMember = {
   name: string
@@ -34,7 +35,21 @@ type SummaryData = {
   updatedAt: Date
 }
 
-export function TeamMembersContent({ teamId }: { teamId: string }) {
+interface Member {
+  id: string
+  name: string
+  status: "出勤中" | "退勤" | "未出勤"
+  lastAttendance?: {
+    type: "entry" | "exit"
+    timestamp: Date
+  }
+}
+
+interface TeamMembersContentProps {
+  teamId: string
+}
+
+export function TeamMembersContent({ teamId }: TeamMembersContentProps) {
   const [timeRange, setTimeRange] = useState("month")
   const [selectedTeam, setSelectedTeam] = useState<string>(teamId)
   const [teams, setTeams] = useState<{ id: string, name: string }[]>([])
@@ -47,6 +62,8 @@ export function TeamMembersContent({ teamId }: { teamId: string }) {
   })
   const [monthlyTeamMembers, setMonthlyTeamMembers] = useState<MonthlyTeamMembers>({})
   const [yearlyTeamMembers, setYearlyTeamMembers] = useState<YearlyTeamMembers>({})
+  const [members, setMembers] = useState<Member[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   // 現在の年月を取得
   const now = new Date()
@@ -287,6 +304,18 @@ export function TeamMembersContent({ teamId }: { teamId: string }) {
         const yearlyMembers = await Promise.all(members)
         yearlyData[selectedYear] = yearlyMembers
         setYearlyTeamMembers(yearlyData)
+
+        // メンバーの出退勤状況を更新
+        const updatedMembers: Member[] = []
+        for (const member of monthlyMembers) {
+          updatedMembers.push({
+            id: member.name,
+            name: member.name,
+            status: member.status as "出勤中" | "退勤" | "未出勤"
+          })
+        }
+
+        setMembers(updatedMembers)
       } catch (error) {
         console.error("班員データの取得に失敗しました:", error)
       }
@@ -296,6 +325,10 @@ export function TeamMembersContent({ teamId }: { teamId: string }) {
   }, [selectedMonth, selectedYear, timeRange, selectedTeam])
 
   const teamMembers = timeRange === "month" ? monthlyTeamMembers[selectedMonth] || [] : yearlyTeamMembers[selectedYear] || []
+
+  if (isLoading) {
+    return <div>読み込み中...</div>
+  }
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -407,6 +440,48 @@ export function TeamMembersContent({ teamId }: { teamId: string }) {
               </TableBody>
             </Table>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle>班員の出退勤状況</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[400px]">
+            <div className="space-y-4">
+              {members.length === 0 ? (
+                <p className="text-center text-muted-foreground">班員が登録されていません</p>
+              ) : (
+                members.map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between rounded-lg border p-4"
+                  >
+                    <div>
+                      <p className="font-medium">{member.name}</p>
+                      {member.lastAttendance && (
+                        <p className="text-sm text-muted-foreground">
+                          最終更新: {member.lastAttendance.timestamp.toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                    <div
+                      className={`rounded-full px-3 py-1 text-sm ${
+                        member.status === "出勤中"
+                          ? "bg-green-100 text-green-800"
+                          : member.status === "退勤"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {member.status}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </ScrollArea>
         </CardContent>
       </Card>
     </div>
