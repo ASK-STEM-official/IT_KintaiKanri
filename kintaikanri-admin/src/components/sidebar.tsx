@@ -1,38 +1,48 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import Link from "next/link"
+import { CalendarClock, Users, Home, LogOut, ChevronDown } from "lucide-react"
+import { useState, useEffect } from "react"
 import { db } from "@/lib/firebase/config"
-import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore"
+import { collection, getDocs, doc, getDoc } from "firebase/firestore"
 import { auth } from "@/lib/firebase/config"
 import { onAuthStateChanged } from "firebase/auth"
-import { LayoutDashboard, Users, Building2 } from "lucide-react"
 
-interface Team {
-  id: string
-  name: string
-  leaderUid: string
-}
+import {
+  Sidebar as SidebarComponent,
+  SidebarContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarFooter,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+} from "@/components/ui/sidebar"
 
-interface UserRole {
-  isAdmin: boolean
-  teamIds: string[]
-}
+// メニュー項目の定義
+const menuItems = [
+  {
+    title: "個人ダッシュボード",
+    href: "/dashboard",
+    icon: Home,
+  },
+]
 
 export function Sidebar() {
   const pathname = usePathname()
-  const [teams, setTeams] = useState<Team[]>([])
-  const [userRole, setUserRole] = useState<UserRole>({ isAdmin: false, teamIds: [] })
+  const [openSubMenu, setOpenSubMenu] = useState<string | null>(null)
+  const [teams, setTeams] = useState<{ id: string, name: string, leaderUid: string }[]>([])
+  const [userRole, setUserRole] = useState<{ isAdmin: boolean, leaderTeamIds: string[] }>({ isAdmin: false, leaderTeamIds: [] })
   const [isLoading, setIsLoading] = useState(true)
 
+  // ユーザー権限と班一覧を取得
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        setUserRole({ isAdmin: false, teamIds: [] })
+        setUserRole({ isAdmin: false, leaderTeamIds: [] })
         setIsLoading(false)
         return
       }
@@ -47,18 +57,9 @@ export function Sidebar() {
         const teamsSnapshot = await getDocs(teamsRef)
         const teamsList = teamsSnapshot.docs.map(doc => ({
           id: doc.id,
-          ...doc.data()
-        })) as Team[]
-
-        // ユーザーが所属する班のIDを取得
-        const userTeamsQuery = query(
-          collection(db, "users"),
-          where("teamId", "in", teamsList.map(team => team.id))
-        )
-        const userTeamsSnapshot = await getDocs(userTeamsQuery)
-        const userTeamIds = userTeamsSnapshot.docs
-          .filter(doc => doc.id === user.uid)
-          .map(doc => doc.data().teamId)
+          name: doc.data().name,
+          leaderUid: doc.data().leaderUid
+        }))
 
         // リーダー権限を持つ班のIDを取得
         const leaderTeamIds = teamsList
@@ -68,7 +69,7 @@ export function Sidebar() {
         setTeams(teamsList)
         setUserRole({
           isAdmin,
-          teamIds: [...new Set([...userTeamIds, ...leaderTeamIds])]
+          leaderTeamIds
         })
       } catch (error) {
         console.error("権限情報の取得に失敗しました:", error)
@@ -80,60 +81,93 @@ export function Sidebar() {
     return () => unsubscribe()
   }, [])
 
+  const toggleSubMenu = (title: string) => {
+    setOpenSubMenu(openSubMenu === title ? null : title)
+  }
+
   if (isLoading) {
     return <div>読み込み中...</div>
   }
 
   return (
-    <div className="flex h-full flex-col gap-2">
-      <div className="flex-1 overflow-auto py-2">
-        <ScrollArea className="h-full px-2">
-          <div className="space-y-1">
-            {/* 個人ダッシュボード（全員表示） */}
-            <Button
-              asChild
-              variant={pathname === "/dashboard" ? "secondary" : "ghost"}
-              className="w-full justify-start"
-            >
-              <Link href="/dashboard">
-                <LayoutDashboard className="mr-2 h-4 w-4" />
-                個人ダッシュボード
-              </Link>
-            </Button>
+    <SidebarComponent className="border-r">
+      <SidebarHeader className="py-4 px-4">
+        <div className="flex items-center gap-2">
+          <CalendarClock className="h-6 w-6" />
+          <h1 className="text-lg font-bold">勤怠管理システム</h1>
+        </div>
+      </SidebarHeader>
 
-            {/* 班のメニュー（権限がある場合のみ表示） */}
-            {teams.map((team) => {
-              const hasAccess = userRole.isAdmin || userRole.teamIds.includes(team.id)
-              if (!hasAccess) return null
+      <SidebarContent>
+        <SidebarMenu>
+          {menuItems.map((item) => (
+            <SidebarMenuItem key={item.title}>
+              <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.title}>
+                <Link href={item.href}>
+                  <item.icon className="h-5 w-5" />
+                  <span>{item.title}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
 
-              return (
-                <div key={team.id} className="space-y-1">
-                  <Button
-                    asChild
-                    variant={pathname === `/teams/${team.id}` ? "secondary" : "ghost"}
-                    className="w-full justify-start"
-                  >
-                    <Link href={`/teams/${team.id}`}>
-                      <Building2 className="mr-2 h-4 w-4" />
-                      {team.name}のダッシュボード
-                    </Link>
-                  </Button>
-                  <Button
-                    asChild
-                    variant={pathname === `/teams/${team.id}/members` ? "secondary" : "ghost"}
-                    className="w-full justify-start"
-                  >
-                    <Link href={`/teams/${team.id}/members`}>
-                      <Users className="mr-2 h-4 w-4" />
-                      {team.name}の班員一覧
-                    </Link>
-                  </Button>
-                </div>
-              )
-            })}
-          </div>
-        </ScrollArea>
-      </div>
-    </div>
+          {/* 班一覧のドロップダウン（管理者または班リーダーの場合のみ表示） */}
+          {teams.map((team) => {
+            const hasAccess = userRole.isAdmin || userRole.leaderTeamIds.includes(team.id)
+            if (!hasAccess) return null
+
+            return (
+              <SidebarMenuItem key={team.id}>
+                <SidebarMenuButton
+                  onClick={() => toggleSubMenu(team.id)}
+                  isActive={pathname.startsWith(`/teams/${team.id}`)}
+                >
+                  <Users className="h-5 w-5" />
+                  <span>{team.name}</span>
+                  <ChevronDown
+                    className={`ml-auto h-4 w-4 transition-transform ${
+                      openSubMenu === team.id ? "rotate-180" : ""
+                    }`}
+                  />
+                </SidebarMenuButton>
+                {openSubMenu === team.id && (
+                  <SidebarMenuSub>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        asChild
+                        isActive={pathname === `/teams/${team.id}`}
+                      >
+                        <Link href={`/teams/${team.id}`}>ダッシュボード</Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        asChild
+                        isActive={pathname === `/teams/${team.id}/members`}
+                      >
+                        <Link href={`/teams/${team.id}/members`}>班員一覧</Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  </SidebarMenuSub>
+                )}
+              </SidebarMenuItem>
+            )
+          })}
+        </SidebarMenu>
+      </SidebarContent>
+
+      <SidebarFooter className="mt-auto">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <button className="w-full">
+                <LogOut className="h-5 w-5" />
+                <span>ログアウト</span>
+              </button>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+    </SidebarComponent>
   )
 } 

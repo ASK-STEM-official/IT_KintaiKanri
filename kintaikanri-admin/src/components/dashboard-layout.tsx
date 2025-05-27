@@ -1,9 +1,8 @@
 "use client"
 
 import type React from "react"
-
+import { Sidebar } from "@/components/sidebar"
 import { SidebarProvider } from "@/components/ui/sidebar"
-import { AppSidebar } from "./app-sidebar"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -11,12 +10,12 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
-    <div className="h-screen flex bg-gray-50">
+    <div className="flex h-screen">
       <SidebarProvider defaultOpen={true}>
-        <div className="flex h-full w-full">
-          <AppSidebar />
-          <main className="flex-1 overflow-auto p-4 pb-6">{children}</main>
-        </div>
+        <Sidebar />
+        <main className="flex-1 overflow-y-auto p-8">
+          {children}
+        </main>
       </SidebarProvider>
     </div>
   )
