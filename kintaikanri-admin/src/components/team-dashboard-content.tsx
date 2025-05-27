@@ -315,9 +315,10 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
             })
           })
 
-          const monthlyAvgAttendance = Math.round(monthlyAttendedUsers.size / workDays)
+          // 月次の統計を計算
+          const monthlyAvgAttendance = workDays > 0 ? Math.round(monthlyAttendedUsers.size / workDays) : 0
           const monthlyAttendanceRate = totalCount > 0
-            ? Math.round((monthlyAttendedUsers.size / (totalCount * workDays)) * 100)
+            ? Math.round((monthlyAttendedUsers.size / totalCount) * 100)
             : 0
 
           const monthlyAvgWorkTimeMs = monthlyValidWorkDays > 0 ? monthlyTotalWorkTime / monthlyValidWorkDays : 0
@@ -400,9 +401,10 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
             })
           })
 
-          const yearlyAvgAttendance = Math.round(yearlyAttendedUsers.size / totalWorkDays)
+          // 年次の統計を計算
+          const yearlyAvgAttendance = totalWorkDays > 0 ? Math.round(yearlyAttendedUsers.size / totalWorkDays) : 0
           const yearlyAttendanceRate = totalCount > 0
-            ? Math.round((yearlyAttendedUsers.size / (totalCount * totalWorkDays)) * 100)
+            ? Math.round((yearlyAttendedUsers.size / totalCount) * 100)
             : 0
 
           const yearlyAvgWorkTimeMs = yearlyValidWorkDays > 0 ? yearlyTotalWorkTime / yearlyValidWorkDays : 0
