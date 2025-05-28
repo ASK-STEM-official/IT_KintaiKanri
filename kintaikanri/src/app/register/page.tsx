@@ -33,7 +33,7 @@ export default function Register() {
         const newToken = uuidv4()
         setToken(newToken)
         await saveToken(newToken)
-        setQrValue(`http://localhost:3001/auth?token=${newToken}`)
+        setQrValue(`https://it-kintai-kanri.vercel.app/auth?token=${newToken}`)
         setError("")
       } catch (err) {
         setError("トークンの生成に失敗しました")
