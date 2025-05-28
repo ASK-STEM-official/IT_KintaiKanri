@@ -195,7 +195,7 @@ export default function RegisterCard() {
             <div>
               <p className="text-gray-500">学年</p>
               <p className="text-sm font-mono bg-gray-100 p-2 rounded break-all">
-                {userInfo?.grade}期生 ({calculateYear(userInfo?.grade || 0)}年度入学)
+                {userInfo.grade}期生 ({calculateYear(userInfo.grade)}年度入学)
               </p>
             </div>
 

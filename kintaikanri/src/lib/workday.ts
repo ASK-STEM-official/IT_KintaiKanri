@@ -39,9 +39,9 @@ export async function recordWorkdayIfFirstEntry(): Promise<void> {
       updatedAt: new Date()
     }, { merge: true })
 
-  } catch (error: any) {
+  } catch (error) {
     // 既に存在する場合はスキップ（冪等性の保証）
-    if (error.code === "already-exists") {
+    if (error instanceof Error && error.message.includes("already-exists")) {
       return
     }
     // その他のエラーは上位で処理
