@@ -7,7 +7,6 @@ import {
 } from "firebase/auth"
 import {
   doc,
-  setDoc,
   getDoc,
   onSnapshot,
   serverTimestamp,

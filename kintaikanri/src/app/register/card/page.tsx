@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { auth } from "@/lib/firebase/config"
-import { collection, query, where, getDocs, doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore"
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase/config"
 import {
   Dialog,
@@ -14,6 +14,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
+import { User } from "firebase/auth"
 
 type UserInfo = {
   uid: string
@@ -27,7 +28,7 @@ type UserInfo = {
 export default function RegisterCard() {
   const router = useRouter()
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
-  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [error, setError] = useState<string>("")
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [inputBuffer, setInputBuffer] = useState<string>("")

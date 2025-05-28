@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { collection, query, where, getDocs, addDoc, orderBy, limit } from "firebase/firestore";
@@ -22,49 +22,8 @@ export default function Dashboard() {
     }
   };
 
-  // コンポーネントのアンマウント時にクリーンアップ
-  useEffect(() => {
-    return cleanup;
-  }, []);
-
-  // 時刻更新
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      const hours = now.getHours().toString().padStart(2, "0");
-      const minutes = now.getMinutes().toString().padStart(2, "0");
-      setCurrentTime(`${hours}:${minutes}`);
-    };
-
-    updateTime();
-    const intervalId = setInterval(updateTime, 60000);
-    return () => clearInterval(intervalId);
-  }, []);
-
-  // ページ全体でキー入力を受け付ける
-  useEffect(() => {
-    const handleKeydown = (e: KeyboardEvent) => {
-      if (isProcessing) return; // 処理中は入力を無視
-
-      if (e.key === "Enter") {
-        if (buffer.length > 0) {
-          handleAttendance(buffer);
-          setBuffer("");
-        }
-        return;
-      }
-
-      if (/^[a-zA-Z0-9]$/.test(e.key) && buffer.length < 24) {
-        setBuffer((prev) => prev + e.key);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeydown);
-    return () => window.removeEventListener("keydown", handleKeydown);
-  }, [buffer, isProcessing]);
-
   // 出退勤処理
-  const handleAttendance = async (cardId: string) => {
+  const handleAttendance = useCallback(async (cardId: string) => {
     if (isProcessing) return; // 二重実行防止
 
     setIsProcessing(true);
@@ -132,7 +91,48 @@ export default function Dashboard() {
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [isProcessing]);
+
+  // コンポーネントのアンマウント時にクリーンアップ
+  useEffect(() => {
+    return cleanup;
+  }, []);
+
+  // 時刻更新
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      const hours = now.getHours().toString().padStart(2, "0");
+      const minutes = now.getMinutes().toString().padStart(2, "0");
+      setCurrentTime(`${hours}:${minutes}`);
+    };
+
+    updateTime();
+    const intervalId = setInterval(updateTime, 60000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // ページ全体でキー入力を受け付ける
+  useEffect(() => {
+    const handleKeydown = (e: KeyboardEvent) => {
+      if (isProcessing) return; // 処理中は入力を無視
+
+      if (e.key === "Enter") {
+        if (buffer.length > 0) {
+          handleAttendance(buffer);
+          setBuffer("");
+        }
+        return;
+      }
+
+      if (/^[a-zA-Z0-9]$/.test(e.key) && buffer.length < 24) {
+        setBuffer((prev) => prev + e.key);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeydown);
+    return () => window.removeEventListener("keydown", handleKeydown);
+  }, [buffer, isProcessing, handleAttendance]);
 
   return (
     <div className="min-h-screen flex flex-col">

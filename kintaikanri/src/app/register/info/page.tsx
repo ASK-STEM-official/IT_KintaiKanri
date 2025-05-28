@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { auth } from "@/lib/firebase/config"
 import { db } from "@/lib/firebase/config"
-import { doc, getDoc, setDoc, collection, getDocs, query, where } from "firebase/firestore"
+import { doc, setDoc, collection, getDocs, query, where } from "firebase/firestore"
 
 type Team = {
   id: string
