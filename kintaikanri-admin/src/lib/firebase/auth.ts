@@ -80,3 +80,13 @@ export const getUserInfo = async (uid: string) => {
     throw error
   }
 }
+
+// ログアウト
+export const signOut = async () => {
+  try {
+    await auth.signOut()
+  } catch (error) {
+    console.error("ログアウトエラー:", error)
+    throw error
+  }
+}

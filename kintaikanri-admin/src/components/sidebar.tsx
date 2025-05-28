@@ -1,6 +1,6 @@
 "use client"
 
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { CalendarClock, Users, Home, LogOut, ChevronDown } from "lucide-react"
 import { useState, useEffect } from "react"
@@ -8,6 +8,7 @@ import { db } from "@/lib/firebase/config"
 import { collection, getDocs, doc, getDoc } from "firebase/firestore"
 import { auth } from "@/lib/firebase/config"
 import { onAuthStateChanged } from "firebase/auth"
+import { signOut } from "@/lib/firebase/auth"
 
 import {
   Sidebar as SidebarComponent,
@@ -32,6 +33,7 @@ const menuItems = [
 ]
 
 export function Sidebar() {
+  const router = useRouter()
   const pathname = usePathname()
   const [openSubMenu, setOpenSubMenu] = useState<string | null>(null)
   const [teams, setTeams] = useState<{ id: string, name: string, leaderUid: string }[]>([])
@@ -83,6 +85,15 @@ export function Sidebar() {
 
   const toggleSubMenu = (title: string) => {
     setOpenSubMenu(openSubMenu === title ? null : title)
+  }
+
+  const handleLogout = async () => {
+    try {
+      await signOut()
+      router.push("/login")
+    } catch (error) {
+      console.error("ログアウトに失敗しました:", error)
+    }
   }
 
   if (isLoading) {
@@ -156,11 +167,11 @@ export function Sidebar() {
         </SidebarMenu>
       </SidebarContent>
 
-      <SidebarFooter className="mt-auto">
+      <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <button className="w-full">
+              <button onClick={handleLogout} className="w-full">
                 <LogOut className="h-5 w-5" />
                 <span>ログアウト</span>
               </button>
