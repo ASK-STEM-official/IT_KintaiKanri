@@ -3,12 +3,10 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { UsersIcon, BarChart3Icon } from "lucide-react"
+import { UsersIcon } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { db } from "@/lib/firebase/config"
-import { collection, query, where, getDocs, Timestamp, doc, getDoc } from "firebase/firestore"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { collection, query, where, getDocs, Timestamp } from "firebase/firestore"
 
 interface AttendanceLog {
   id: string
@@ -19,21 +17,10 @@ interface AttendanceLog {
 }
 
 export function TeamDashboardContent({ teamId }: { teamId: string }) {
-  const [timeRange, setTimeRange] = useState("month")
   const [workingMembers, setWorkingMembers] = useState(0)
   const [totalMembers, setTotalMembers] = useState(0)
   const [todayAttendanceRate, setTodayAttendanceRate] = useState("0%")
   const [todayAvgWorkTime, setTodayAvgWorkTime] = useState("0時間0分")
-  const [monthlyStats, setMonthlyStats] = useState({
-    avgAttendance: "0人",
-    attendanceRate: "0%",
-    avgWorkTime: "0時間0分"
-  })
-  const [yearlyStats, setYearlyStats] = useState({
-    avgAttendance: "0人",
-    attendanceRate: "0%",
-    avgWorkTime: "0時間0分"
-  })
   const [selectedTeam, setSelectedTeam] = useState<string>(teamId)
   const [teams, setTeams] = useState<{ id: string, name: string }[]>([])
 
@@ -49,9 +36,6 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
   const [selectedDay, setSelectedDay] = useState(() => {
     return String(new Date().getDate()).padStart(2, "0")
   })
-
-  // 選択された日付を組み合わせる
-  const selectedDate = `${selectedYear}-${selectedMonth}-${selectedDay}`
 
   // 年選択用のオプション（過去5年分）
   const yearOptions = Array.from({ length: 5 }, (_, i) => {
@@ -69,7 +53,6 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
   })
 
   // 日選択用のオプション（1〜31日）
-  // 選択された年月に基づいて日数を調整
   type DayOption = {
     value: string
     label: string
@@ -96,7 +79,7 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
     if (Number.parseInt(selectedDay) > daysInMonth) {
       setSelectedDay(String(daysInMonth).padStart(2, "0"))
     }
-  }, [selectedYear, selectedMonth])
+  }, [selectedYear, selectedMonth, selectedDay])
 
   const [selectedDateAttendance, setSelectedDateAttendance] = useState<{
     name: string
@@ -105,7 +88,6 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
     workTime: string
   }[]>([])
 
-  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   // Firestoreからデータを取得
@@ -255,176 +237,6 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
         })
         setWorkingMembers(workingCount)
 
-        // 月次統計情報の取得
-        const monthlySummaryRef = collection(db, "summary")
-        const monthlySummaryQuery = query(
-          monthlySummaryRef,
-          where("year", "==", Number.parseInt(selectedYear)),
-          where("month", "==", Number.parseInt(selectedMonth))
-        )
-        const monthlySummarySnapshot = await getDocs(monthlySummaryQuery)
-        
-        if (!monthlySummarySnapshot.empty) {
-          const monthlyData = monthlySummarySnapshot.docs[0].data()
-          const workDays = monthlyData.workdays || 0
-          
-          // 月次の出勤ログを取得
-          const startOfMonth = new Date(Number.parseInt(selectedYear), Number.parseInt(selectedMonth) - 1, 1)
-          const endOfMonth = new Date(Number.parseInt(selectedYear), Number.parseInt(selectedMonth), 0)
-          
-          const monthlyLogsQuery = query(
-            logsRef,
-            where("uid", "in", memberIds),
-            where("timestamp", ">=", Timestamp.fromDate(startOfMonth)),
-            where("timestamp", "<=", Timestamp.fromDate(endOfMonth))
-          )
-          const monthlyLogsSnapshot = await getDocs(monthlyLogsQuery)
-
-          // 月次の統計を計算
-          const monthlyUserLogs = new Map<string, { uid: string, entries: Timestamp[], exits: Timestamp[] }>()
-          monthlyLogsSnapshot.docs.forEach(doc => {
-            const log = doc.data()
-            if (!monthlyUserLogs.has(log.uid)) {
-              monthlyUserLogs.set(log.uid, { uid: log.uid, entries: [], exits: [] })
-            }
-            if (log.type === "entry") {
-              monthlyUserLogs.get(log.uid)?.entries.push(log.timestamp)
-            } else {
-              monthlyUserLogs.get(log.uid)?.exits.push(log.timestamp)
-            }
-          })
-
-          // 月次の平均出勤人数と出勤率を計算
-          const monthlyAttendedUsers = new Set<string>()
-          let monthlyTotalWorkTime = 0
-          let monthlyValidWorkDays = 0
-
-          monthlyUserLogs.forEach((logs) => {
-            if (logs.entries.length > 0) {
-              monthlyAttendedUsers.add(logs.uid)
-            }
-            logs.entries.forEach((entry, index) => {
-              const exit = logs.exits[index]
-              if (exit) {
-                const workTime = exit.toDate().getTime() - entry.toDate().getTime()
-                if (workTime >= 60 * 1000) {
-                  monthlyTotalWorkTime += workTime
-                  monthlyValidWorkDays++
-                }
-              }
-            })
-          })
-
-          // 月次の統計を計算
-          const monthlyAvgAttendance = workDays > 0 ? Math.round(monthlyAttendedUsers.size / workDays) : 0
-          const monthlyAttendanceRate = totalCount > 0
-            ? Math.round((monthlyAttendedUsers.size / totalCount) * 100)
-            : 0
-
-          const monthlyAvgWorkTimeMs = monthlyValidWorkDays > 0 ? monthlyTotalWorkTime / monthlyValidWorkDays : 0
-          const monthlyAvgWorkHours = Math.floor(monthlyAvgWorkTimeMs / (1000 * 60 * 60))
-          const monthlyAvgWorkMinutes = Math.floor((monthlyAvgWorkTimeMs % (1000 * 60 * 60)) / (1000 * 60))
-
-          setMonthlyStats({
-            avgAttendance: `${monthlyAvgAttendance}人`,
-            attendanceRate: `${monthlyAttendanceRate}%`,
-            avgWorkTime: `${monthlyAvgWorkHours}時間${monthlyAvgWorkMinutes}分`
-          })
-        } else {
-          // 月次データが存在しない場合はデフォルト値を設定
-          setMonthlyStats({
-            avgAttendance: "0人",
-            attendanceRate: "0%",
-            avgWorkTime: "0時間0分"
-          })
-        }
-
-        // 年次統計情報の取得
-        const yearlySummaryQuery = query(
-          monthlySummaryRef,
-          where("year", "==", Number.parseInt(selectedYear))
-        )
-        const yearlySummarySnapshot = await getDocs(yearlySummaryQuery)
-        
-        if (!yearlySummarySnapshot.empty) {
-          // 年間の労働日数を計算
-          let totalWorkDays = 0
-          yearlySummarySnapshot.docs.forEach(doc => {
-            const data = doc.data()
-            totalWorkDays += data.workdays || 0
-          })
-
-          // 年次の出勤ログを取得
-          const startOfYear = new Date(Number.parseInt(selectedYear), 0, 1)
-          const endOfYear = new Date(Number.parseInt(selectedYear), 11, 31)
-          
-          const yearlyLogsQuery = query(
-            logsRef,
-            where("uid", "in", memberIds),
-            where("timestamp", ">=", Timestamp.fromDate(startOfYear)),
-            where("timestamp", "<=", Timestamp.fromDate(endOfYear))
-          )
-          const yearlyLogsSnapshot = await getDocs(yearlyLogsQuery)
-
-          // 年次の統計を計算
-          const yearlyUserLogs = new Map<string, { uid: string, entries: Timestamp[], exits: Timestamp[] }>()
-          yearlyLogsSnapshot.docs.forEach(doc => {
-            const log = doc.data()
-            if (!yearlyUserLogs.has(log.uid)) {
-              yearlyUserLogs.set(log.uid, { uid: log.uid, entries: [], exits: [] })
-            }
-            if (log.type === "entry") {
-              yearlyUserLogs.get(log.uid)?.entries.push(log.timestamp)
-            } else {
-              yearlyUserLogs.get(log.uid)?.exits.push(log.timestamp)
-            }
-          })
-
-          // 年次の平均出勤人数と出勤率を計算
-          const yearlyAttendedUsers = new Set<string>()
-          let yearlyTotalWorkTime = 0
-          let yearlyValidWorkDays = 0
-
-          yearlyUserLogs.forEach((logs) => {
-            if (logs.entries.length > 0) {
-              yearlyAttendedUsers.add(logs.uid)
-            }
-            logs.entries.forEach((entry, index) => {
-              const exit = logs.exits[index]
-              if (exit) {
-                const workTime = exit.toDate().getTime() - entry.toDate().getTime()
-                if (workTime >= 60 * 1000) {
-                  yearlyTotalWorkTime += workTime
-                  yearlyValidWorkDays++
-                }
-              }
-            })
-          })
-
-          // 年次の統計を計算
-          const yearlyAvgAttendance = totalWorkDays > 0 ? Math.round(yearlyAttendedUsers.size / totalWorkDays) : 0
-          const yearlyAttendanceRate = totalCount > 0
-            ? Math.round((yearlyAttendedUsers.size / totalCount) * 100)
-            : 0
-
-          const yearlyAvgWorkTimeMs = yearlyValidWorkDays > 0 ? yearlyTotalWorkTime / yearlyValidWorkDays : 0
-          const yearlyAvgWorkHours = Math.floor(yearlyAvgWorkTimeMs / (1000 * 60 * 60))
-          const yearlyAvgWorkMinutes = Math.floor((yearlyAvgWorkTimeMs % (1000 * 60 * 60)) / (1000 * 60))
-
-          setYearlyStats({
-            avgAttendance: `${yearlyAvgAttendance}人`,
-            attendanceRate: `${yearlyAttendanceRate}%`,
-            avgWorkTime: `${yearlyAvgWorkHours}時間${yearlyAvgWorkMinutes}分`
-          })
-        } else {
-          // 年次データが存在しない場合はデフォルト値を設定
-          setYearlyStats({
-            avgAttendance: "0人",
-            attendanceRate: "0%",
-            avgWorkTime: "0時間0分"
-          })
-        }
-
         // 選択された日付の出退勤履歴を取得
         const selectedDate = new Date(Number.parseInt(selectedYear), Number.parseInt(selectedMonth) - 1, Number.parseInt(selectedDay))
         const selectedDateStart = new Date(selectedDate)
@@ -493,87 +305,6 @@ export function TeamDashboardContent({ teamId }: { teamId: string }) {
 
     fetchTeamData()
   }, [selectedYear, selectedMonth, selectedDay, selectedTeam])
-
-  // ダミーデータ - 班情報
-  const teamData = {
-    name: "開発班",
-    totalMembers: 24,
-    workingMembers: 14,
-    todayAvgWorkTime: "5時間30分",
-    monthlyAvgAttendance: "18人",
-    monthlyAttendanceRate: "75%",
-    monthlyAvgWorkTime: "6時間15分",
-    yearlyAvgAttendance: "16人",
-    yearlyAttendanceRate: "67%",
-    yearlyAvgWorkTime: "6時間05分",
-  }
-
-  // ダミーの班員勤怠データ（開発班固定）
-  type TeamMemberAttendance = {
-    name: string
-    entryTime: string
-    exitTime: string
-    workTime: string
-  }
-
-  type TeamMembersAttendance = {
-    [key: string]: TeamMemberAttendance[]
-  }
-
-  const teamMembersAttendance: TeamMembersAttendance = {
-    "2023-05-10": [
-      { name: "山田 太郎", entryTime: "09:15", exitTime: "17:45", workTime: "8:30" },
-      { name: "佐藤 次郎", entryTime: "08:45", exitTime: "16:30", workTime: "7:45" },
-      { name: "鈴木 三郎", entryTime: "09:30", exitTime: "18:00", workTime: "8:30" },
-      { name: "高橋 四郎", entryTime: "-", exitTime: "-", workTime: "-" },
-      { name: "田中 五郎", entryTime: "10:00", exitTime: "17:30", workTime: "7:30" },
-      { name: "伊藤 六郎", entryTime: "08:30", exitTime: "17:15", workTime: "8:45" },
-      { name: "渡辺 七郎", entryTime: "-", exitTime: "-", workTime: "-" },
-      { name: "小林 八郎", entryTime: "-", exitTime: "-", workTime: "-" },
-      { name: "加藤 健太", entryTime: "09:00", exitTime: "17:30", workTime: "8:30" },
-      { name: "吉田 直樹", entryTime: "08:45", exitTime: "16:15", workTime: "7:30" },
-      { name: "松本 大輔", entryTime: "09:30", exitTime: "18:15", workTime: "8:45" },
-      { name: "井上 誠", entryTime: "-", exitTime: "-", workTime: "-" },
-      { name: "木村 拓哉", entryTime: "09:15", exitTime: "17:45", workTime: "8:30" },
-      { name: "清水 洋平", entryTime: "08:30", exitTime: "16:00", workTime: "7:30" },
-      { name: "中村 悠太", entryTime: "09:45", exitTime: "18:30", workTime: "8:45" },
-      { name: "斎藤 健", entryTime: "-", exitTime: "-", workTime: "-" },
-      { name: "近藤 真司", entryTime: "09:00", exitTime: "17:30", workTime: "8:30" },
-      { name: "石田 雄大", entryTime: "08:45", exitTime: "16:15", workTime: "7:30" },
-      { name: "山本 和也", entryTime: "09:30", exitTime: "18:00", workTime: "8:30" },
-      { name: "藤田 一郎", entryTime: "10:00", exitTime: "17:30", workTime: "7:30" },
-      { name: "中島 健太郎", entryTime: "08:30", exitTime: "17:15", workTime: "8:45" },
-      { name: "岡田 隆", entryTime: "-", exitTime: "-", workTime: "-" },
-      { name: "後藤 大介", entryTime: "09:15", exitTime: "17:45", workTime: "8:30" },
-      { name: "村田 翔太", entryTime: "08:45", exitTime: "16:30", workTime: "7:45" },
-    ],
-    "2023-05-09": [
-      { name: "山田 太郎", entryTime: "09:00", exitTime: "17:30", workTime: "8:30" },
-      { name: "佐藤 次郎", entryTime: "08:30", exitTime: "16:15", workTime: "7:45" },
-      { name: "鈴木 三郎", entryTime: "09:15", exitTime: "17:45", workTime: "8:30" },
-      { name: "高橋 四郎", entryTime: "10:00", exitTime: "17:00", workTime: "7:00" },
-      { name: "田中 五郎", entryTime: "09:45", exitTime: "17:15", workTime: "7:30" },
-      { name: "伊藤 六郎", entryTime: "08:15", exitTime: "17:00", workTime: "8:45" },
-      { name: "渡辺 七郎", entryTime: "09:30", exitTime: "16:30", workTime: "7:00" },
-      { name: "小林 八郎", entryTime: "-", exitTime: "-", workTime: "-" },
-      { name: "加藤 健太", entryTime: "08:45", exitTime: "17:15", workTime: "8:30" },
-      { name: "吉田 直樹", entryTime: "08:30", exitTime: "16:00", workTime: "7:30" },
-      { name: "松本 大輔", entryTime: "09:15", exitTime: "18:00", workTime: "8:45" },
-      { name: "井上 誠", entryTime: "10:00", exitTime: "17:00", workTime: "7:00" },
-      { name: "木村 拓哉", entryTime: "09:00", exitTime: "17:30", workTime: "8:30" },
-      { name: "清水 洋平", entryTime: "08:15", exitTime: "15:45", workTime: "7:30" },
-      { name: "中村 悠太", entryTime: "09:30", exitTime: "18:15", workTime: "8:45" },
-      { name: "斎藤 健", entryTime: "-", exitTime: "-", workTime: "-" },
-      { name: "近藤 真司", entryTime: "08:45", exitTime: "17:15", workTime: "8:30" },
-      { name: "石田 雄大", entryTime: "08:30", exitTime: "16:00", workTime: "7:30" },
-      { name: "山本 和也", entryTime: "09:15", exitTime: "17:45", workTime: "8:30" },
-      { name: "藤田 一郎", entryTime: "09:45", exitTime: "17:15", workTime: "7:30" },
-      { name: "中島 健太郎", entryTime: "08:15", exitTime: "17:00", workTime: "8:45" },
-      { name: "岡田 隆", entryTime: "10:00", exitTime: "17:00", workTime: "7:00" },
-      { name: "後藤 大介", entryTime: "09:00", exitTime: "17:30", workTime: "8:30" },
-      { name: "村田 翔太", entryTime: "08:30", exitTime: "16:15", workTime: "7:45" },
-    ],
-  }
 
   // 表示用の日付フォーマット
   const displayDate = `${selectedYear}年${Number.parseInt(selectedMonth)}月${Number.parseInt(selectedDay)}日`
