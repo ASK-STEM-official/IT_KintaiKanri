@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { signInWithGitHub, watchTokenStatus } from "@/lib/firebase/auth"
 import { collection, query, where, getDocs, updateDoc, serverTimestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase/config"
 
-export default function Auth() {
+function AuthContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const token = searchParams.get("token")
@@ -91,5 +91,13 @@ export default function Auth() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function Auth() {
+  return (
+    <Suspense fallback={<div>読み込み中...</div>}>
+      <AuthContent />
+    </Suspense>
   )
 }
