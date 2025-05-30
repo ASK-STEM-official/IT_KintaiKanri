@@ -59,7 +59,7 @@ export default function RegisterInfoPage() {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       setUser(user)
       if (!user) {
-        router.push("/register/info")
+        router.push("/register")
         return
       }
 

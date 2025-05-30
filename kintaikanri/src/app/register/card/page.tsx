@@ -38,7 +38,7 @@ export default function RegisterCard() {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (!user) {
-        router.push("/auth")
+        router.push("/register")
         return
       }
 
