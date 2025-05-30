@@ -59,7 +59,7 @@ export default function RegisterInfoPage() {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       setUser(user)
       if (!user) {
-        router.push("/auth")
+        router.push("/register")
         return
       }
 
@@ -73,9 +73,13 @@ export default function RegisterInfoPage() {
             uid: data.uid,
             github: data.github
           })
+        } else {
+          // link_requestsにデータがない場合は新規登録ページに戻る
+          router.push("/register")
         }
       } catch (error) {
         console.error("ユーザー情報の取得に失敗しました:", error)
+        router.push("/register")
       }
     })
     return () => unsubscribe()
