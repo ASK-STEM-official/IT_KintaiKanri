@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { doc, setDoc, getDoc, serverTimestamp, collection, getDocs, query, where } from "firebase/firestore"
@@ -23,7 +23,7 @@ type UserInfo = {
   grade: number
 }
 
-export default function RegisterCard() {
+function RegisterCardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
@@ -235,5 +235,13 @@ export default function RegisterCard() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+export default function RegisterCardPage() {
+  return (
+    <Suspense fallback={<div>読み込み中...</div>}>
+      <RegisterCardContent />
+    </Suspense>
   )
 } 

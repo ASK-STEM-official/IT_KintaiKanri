@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -18,7 +18,7 @@ type UserInfo = {
   github: string
 }
 
-export default function RegisterInfoPage() {
+function RegisterInfoContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
@@ -229,5 +229,13 @@ export default function RegisterInfoPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function RegisterInfoPage() {
+  return (
+    <Suspense fallback={<div>読み込み中...</div>}>
+      <RegisterInfoContent />
+    </Suspense>
   )
 } 
