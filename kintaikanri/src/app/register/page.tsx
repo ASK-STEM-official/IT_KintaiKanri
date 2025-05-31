@@ -122,7 +122,7 @@ export default function Register() {
             </Button>
             <Button
               disabled={!isAuthenticated}
-              onClick={() => router.push("/register/info")}
+              onClick={() => router.push(`/register/info?token=${token}`)}
             >
               次へ
             </Button>

@@ -1,11 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { auth } from "@/lib/firebase/config"
 import { db } from "@/lib/firebase/config"
 import { doc, setDoc, collection, getDocs, query, where } from "firebase/firestore"
 
@@ -21,7 +20,7 @@ type UserInfo = {
 
 export default function RegisterInfoPage() {
   const router = useRouter()
-  const [user, setUser] = useState(auth.currentUser)
+  const searchParams = useSearchParams()
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [firstname, setFirstname] = useState("")
   const [lastname, setLastname] = useState("")
@@ -54,19 +53,20 @@ export default function RegisterInfoPage() {
     }
   }
 
-  // 認証状態の監視
+  // link_requestsからユーザー情報を取得
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      setUser(user)
-      if (!user) {
-        router.push("/register")
+    const fetchUserInfo = async () => {
+      const token = searchParams.get('token')
+      if (!token) {
+        console.log("トークンがありません")
         return
       }
 
       try {
-        // link_requestsからユーザー情報を取得
-        const q = query(collection(db, "link_requests"), where("uid", "==", user.uid))
+        // link_requestsからトークンに一致するドキュメントを検索
+        const q = query(collection(db, "link_requests"), where("token", "==", token))
         const querySnapshot = await getDocs(q)
+        
         if (!querySnapshot.empty) {
           const data = querySnapshot.docs[0].data()
           setUserInfo({
@@ -74,16 +74,15 @@ export default function RegisterInfoPage() {
             github: data.github
           })
         } else {
-          // link_requestsにデータがない場合は新規登録ページに戻る
-          router.push("/register")
+          console.log("トークンに一致するユーザー情報が見つかりません")
         }
       } catch (error) {
         console.error("ユーザー情報の取得に失敗しました:", error)
-        router.push("/register")
       }
-    })
-    return () => unsubscribe()
-  }, [router])
+    }
+
+    fetchUserInfo()
+  }, [searchParams])
 
   // 班一覧を取得
   useEffect(() => {
@@ -106,12 +105,12 @@ export default function RegisterInfoPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user || !userInfo) return
+    if (!userInfo) return
 
     setIsLoading(true)
     try {
       // ユーザー情報を保存
-      const userRef = doc(db, "users", user.uid)
+      const userRef = doc(db, "users", userInfo.uid)
       await setDoc(userRef, {
         firstname,
         lastname,
@@ -121,7 +120,7 @@ export default function RegisterInfoPage() {
         createdAt: new Date(),
       })
 
-      router.push("/register/card")
+      router.push(`/register/card?token=${searchParams.get('token')}`)
     } catch (error) {
       console.error("ユーザー情報の保存に失敗しました:", error)
     } finally {
@@ -129,8 +128,8 @@ export default function RegisterInfoPage() {
     }
   }
 
-  if (!user || !userInfo) {
-    return null
+  if (!userInfo) {
+    return <div>読み込み中...</div>
   }
 
   return (

@@ -1,10 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { auth } from "@/lib/firebase/config"
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore"
+import { doc, setDoc, getDoc, serverTimestamp, collection, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/lib/firebase/config"
 import {
   Dialog,
@@ -14,7 +13,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { User } from "firebase/auth"
 
 type UserInfo = {
   uid: string
@@ -27,8 +25,8 @@ type UserInfo = {
 
 export default function RegisterCard() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
-  const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [error, setError] = useState<string>("")
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [inputBuffer, setInputBuffer] = useState<string>("")
@@ -36,43 +34,52 @@ export default function RegisterCard() {
   const [teamName, setTeamName] = useState<string>("")
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (!user) {
+    const fetchUserInfo = async () => {
+      const token = searchParams.get('token')
+      if (!token) {
         router.push("/register")
         return
       }
 
-      setCurrentUser(user)
       try {
-        // ユーザー情報を取得
-        const userDoc = await getDoc(doc(db, "users", user.uid))
-        if (userDoc.exists()) {
-          const userData = userDoc.data()
-          setUserInfo({
-            uid: user.uid,
-            github: userData.github,
-            firstname: userData.firstname,
-            lastname: userData.lastname,
-            teamId: userData.teamId,
-            grade: userData.grade
-          })
+        // link_requestsからトークンに一致するドキュメントを検索
+        const q = query(collection(db, "link_requests"), where("token", "==", token))
+        const querySnapshot = await getDocs(q)
+        
+        if (!querySnapshot.empty) {
+          const data = querySnapshot.docs[0].data()
+          // ユーザー情報を取得
+          const userDoc = await getDoc(doc(db, "users", data.uid))
+          if (userDoc.exists()) {
+            const userData = userDoc.data()
+            setUserInfo({
+              uid: data.uid,
+              github: userData.github,
+              firstname: userData.firstname,
+              lastname: userData.lastname,
+              teamId: userData.teamId,
+              grade: userData.grade
+            })
 
-          // 班情報を取得
-          if (userData.teamId) {
-            const teamDoc = await getDoc(doc(db, "teams", userData.teamId))
-            if (teamDoc.exists()) {
-              setTeamName(teamDoc.data().name)
+            // 班情報を取得
+            if (userData.teamId) {
+              const teamDoc = await getDoc(doc(db, "teams", userData.teamId))
+              if (teamDoc.exists()) {
+                setTeamName(teamDoc.data().name)
+              }
             }
           }
+        } else {
+          router.push("/register")
         }
       } catch (err) {
         setError("ユーザー情報の取得に失敗しました")
         console.error(err)
       }
-    })
+    }
 
-    return () => unsubscribe()
-  }, [router])
+    fetchUserInfo()
+  }, [router, searchParams])
 
   // キーボード入力のイベントハンドラ
   useEffect(() => {
@@ -96,14 +103,14 @@ export default function RegisterCard() {
   }, [inputBuffer])
 
   const handleRegister = async () => {
-    if (!currentUser || !inputBuffer || !userInfo) return
+    if (!inputBuffer || !userInfo) return
 
     try {
       setIsLoading(true)
       setError("")
 
       // カードIDを追加して更新
-      await setDoc(doc(db, "users", currentUser.uid), {
+      await setDoc(doc(db, "users", userInfo.uid), {
         ...userInfo,
         cardId: inputBuffer,
         teamId: userInfo.teamId,
@@ -124,7 +131,7 @@ export default function RegisterCard() {
   const startYear = 2016 // 1期生の年度
   const calculateYear = (grade: number) => startYear + grade - 1
 
-  if (!userInfo || !currentUser) {
+  if (!userInfo) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p>読み込み中...</p>
