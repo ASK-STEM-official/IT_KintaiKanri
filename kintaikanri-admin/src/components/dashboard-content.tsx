@@ -342,7 +342,7 @@ export function DashboardContent() {
   return (
     <div className="h-full flex flex-col gap-3 overflow-hidden">
       {/* 上部情報セクション */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
         <Card className="shadow-sm">
           <CardHeader className="py-2 px-4">
             <div className="flex items-center justify-between">
